@@ -1,0 +1,28 @@
+# Maven build output
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+config.local.properties
+
+# TLS keys, certificates and private credentials
+*.jks
+*.p12
+*.pfx
+*.key
+*.pem
+
+# Logs
+*.log
+logs/
+
+# Operating system
+.DS_Store
+Thumbs.db
