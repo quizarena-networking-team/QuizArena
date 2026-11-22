@@ -1,0 +1,6 @@
+package com.quizarena.quiz;
+
+public enum QuizState {
+    LOBBY, LOADING, QUESTION_OPEN, QUESTION_REVIEW,
+    BUZZER_OPEN, BUZZER_AWAITING_ANSWER, SAVING, FINISHED, CLOSED
+}
