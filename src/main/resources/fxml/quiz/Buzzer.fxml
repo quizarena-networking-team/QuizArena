@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.quiz.BuzzerController"
+      spacing="12" styleClass="quiz-card">
+    <Label text="Fastest finger" styleClass="section-title"/>
+    <Button fx:id="buzz" text="BUZZ!" onAction="#press" disable="true" styleClass="buzzer-button"/>
+    <Label fx:id="status" text="Buzzer is not open." wrapText="true" styleClass="muted"/>
+</VBox>
