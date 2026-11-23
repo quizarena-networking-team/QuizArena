@@ -1,0 +1,37 @@
+name: Java CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  maven:
+    name: Maven tests (Java 21)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Ensure JavaFX display dependencies are installed
+        run: |
+          if ! dpkg -s xvfb xauth libgtk-3-0t64 >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends xvfb xauth libgtk-3-0t64
+          fi
+
+      - name: Run Maven tests including JavaFX
+        run: xvfb-run -a mvn --batch-mode --no-transfer-progress -Dquizarena.uiTests=true clean test
