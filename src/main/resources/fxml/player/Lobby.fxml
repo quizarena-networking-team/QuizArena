@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.player.LobbyController"
+      maxWidth="900" spacing="24">
+    <HBox alignment="CENTER_LEFT" spacing="16">
+        <VBox spacing="7" HBox.hgrow="ALWAYS">
+            <Label text="Player lobby" styleClass="page-title"/>
+            <Label text="Waiting for the host" styleClass="muted"/>
+        </VBox>
+        <Button fx:id="leaveButton" text="Leave room" onAction="#leave" styleClass="quiet-button"/>
+    </HBox>
+    <HBox spacing="18" alignment="TOP_LEFT">
+        <VBox spacing="14" styleClass="player-card" HBox.hgrow="ALWAYS" minWidth="225">
+            <HBox alignment="CENTER_LEFT" spacing="12">
+                <Label text="Players" styleClass="section-title"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="rosterCount" styleClass="muted"/>
+            </HBox>
+            <ListView fx:id="roster" prefHeight="220" accessibleText="Players reported by the server"/>
+            <fx:define>
+                <Label fx:id="rosterPlaceholder" wrapText="true" styleClass="muted"/>
+            </fx:define>
+        </VBox>
+        <VBox spacing="16" styleClass="player-card" prefWidth="310" minWidth="226">
+            <VBox spacing="4">
+                <Label text="Room code" styleClass="field-label"/>
+                <Label fx:id="lobbyRoom" styleClass="room-code" wrapText="true"/>
+            </VBox>
+            <VBox spacing="4">
+                <Label text="Playing as" styleClass="field-label"/>
+                <Label fx:id="lobbyPlayer" styleClass="identity-name" wrapText="true"/>
+            </VBox>
+            <Separator/>
+            <Label fx:id="lobbyPollStatus" wrapText="true" styleClass="muted"/>
+            <Button fx:id="openPollButton" text="Open live poll" onAction="#openPoll" styleClass="primary-button"
+                    visible="false" managed="false"/>
+        </VBox>
+    </HBox>
+    <Label fx:id="lobbyMessage" wrapText="true" styleClass="feedback" visible="false" managed="false"/>
+</VBox>

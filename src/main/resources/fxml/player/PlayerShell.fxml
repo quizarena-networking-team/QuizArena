@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.quizarena.client.player.PlayerSessionController"
+            stylesheets="@../../css/player.css" styleClass="player-shell">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="14" styleClass="player-header">
+            <Label text="QuizArena" styleClass="wordmark"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="connectionStatus" text="Disconnected" styleClass="status-pill"/>
+            <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnect" styleClass="quiet-button"
+                    visible="false" managed="false"/>
+        </HBox>
+    </top>
+    <center>
+        <ScrollPane fx:id="playerViewport" fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER"
+                    styleClass="player-viewport">
+            <content>
+                <StackPane fx:id="playerPages" alignment="TOP_CENTER" styleClass="player-pages">
+                    <fx:include fx:id="connectionView" source="Connection.fxml"/>
+                    <fx:include fx:id="joinView" source="JoinRoom.fxml"/>
+                    <fx:include fx:id="lobbyView" source="Lobby.fxml"/>
+                    <fx:include fx:id="pollView" source="Poll.fxml"/>
+                </StackPane>
+            </content>
+        </ScrollPane>
+    </center>
+</BorderPane>

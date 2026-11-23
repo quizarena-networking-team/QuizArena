@@ -1,0 +1,162 @@
+.player-shell {
+    -fx-background-color: linear-gradient(to bottom right, #152139, #101827 52%, #101827);
+    -fx-font-family: "Segoe UI";
+    -fx-font-size: 15px;
+}
+
+.player-header {
+    -fx-background-color: #131d2f;
+    -fx-border-color: transparent transparent #293650 transparent;
+    -fx-padding: 16 36;
+    -fx-min-height: 70;
+}
+
+.player-viewport, .player-viewport > .viewport {
+    -fx-background-color: transparent;
+}
+
+.player-viewport {
+    -fx-padding: 0;
+}
+
+.player-pages {
+    -fx-padding: 38 35 40;
+}
+
+.wordmark, .page-title, .section-title, .poll-question, .identity-name {
+    -fx-font-weight: bold;
+    -fx-text-fill: #f7f9ff;
+}
+
+.wordmark { -fx-font-size: 24px; }
+.page-title { -fx-font-size: 34px; }
+.section-title { -fx-font-size: 19px; }
+.poll-question { -fx-font-size: 25px; }
+.identity-name { -fx-font-size: 16px; }
+.muted { -fx-text-fill: #b5c2d9; }
+
+.field-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #dce5f4;
+}
+
+.room-code {
+    -fx-font-family: "Consolas";
+    -fx-font-size: 29px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #c8b5ff;
+}
+
+.player-card {
+    -fx-padding: 26;
+    -fx-background-color: #1a263b;
+    -fx-background-radius: 16;
+    -fx-border-color: #31415d;
+    -fx-border-radius: 16;
+}
+
+.text-field {
+    -fx-min-height: 44;
+    -fx-padding: 9 12;
+    -fx-background-color: #111c2f;
+    -fx-background-radius: 8;
+    -fx-border-color: #3a4a67;
+    -fx-border-radius: 8;
+    -fx-prompt-text-fill: #91a0ba;
+    -fx-text-fill: #f7f9ff;
+    -fx-highlight-fill: #713cdd;
+    -fx-highlight-text-fill: white;
+}
+
+.text-field:focused {
+    -fx-border-color: #aa8af9;
+}
+
+.primary-button, .quiet-button {
+    -fx-font-weight: bold;
+    -fx-padding: 9 17;
+    -fx-min-height: 39;
+    -fx-min-width: 76;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.primary-button {
+    -fx-background-color: #713cdd;
+    -fx-border-color: #8755f5;
+    -fx-text-fill: white;
+}
+
+.primary-button:hover { -fx-background-color: #8050ec; }
+.primary-button:pressed { -fx-background-color: #6331c5; }
+
+.quiet-button {
+    -fx-background-color: #1a263b;
+    -fx-border-color: #3a4a67;
+    -fx-text-fill: #e1e9f9;
+}
+
+.quiet-button:hover { -fx-background-color: #273650; }
+.quiet-button:pressed { -fx-background-color: #202e46; }
+.primary-button:focused, .quiet-button:focused { -fx-border-color: #d2bfff; }
+.button:disabled { -fx-opacity: 0.58; -fx-cursor: default; }
+
+.status-pill, .poll-phase {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 6 11;
+    -fx-background-radius: 14;
+}
+
+.status-pill { -fx-background-color: #27354d; -fx-text-fill: #c6d2e9; }
+.status-pill:online, .poll-phase { -fx-background-color: #163b37; -fx-text-fill: #98ebcb; }
+.status-pill:busy { -fx-background-color: #45351e; -fx-text-fill: #ffe1a6; }
+.status-pill:error { -fx-background-color: #4b2b3b; -fx-text-fill: #ffd0dc; }
+.poll-phase:closed { -fx-background-color: #303451; -fx-text-fill: #d5d3f0; }
+
+.feedback { -fx-text-fill: #c7d3e8; }
+.feedback:error { -fx-text-fill: #ffb5c5; }
+.progress-indicator { -fx-progress-color: #bd9cff; }
+
+.list-view {
+    -fx-background-color: #131e30;
+    -fx-background-radius: 8;
+    -fx-border-color: #2c3b55;
+    -fx-border-radius: 8;
+    -fx-padding: 6;
+}
+
+.list-view:focused { -fx-border-color: #aa8af9; }
+.list-view .placeholder { -fx-padding: 12; }
+.list-cell { -fx-background-color: transparent; -fx-text-fill: #e4ebf9; -fx-padding: 8 10; }
+.list-cell:filled:selected { -fx-background-color: #344158; -fx-background-radius: 6; }
+.separator .line { -fx-border-color: #31415d transparent transparent transparent; }
+
+.poll-option {
+    -fx-background-color: #152135;
+    -fx-border-color: #34455f;
+    -fx-background-radius: 9;
+    -fx-border-radius: 9;
+    -fx-padding: 11 13;
+}
+
+.poll-option:chosen { -fx-border-color: #a887fd; -fx-background-color: #242447; }
+.poll-option .radio-button { -fx-text-fill: #f3f5ff; -fx-padding: 3 0; }
+.poll-option .radio-button:disabled { -fx-opacity: 0.86; }
+.poll-option .radio { -fx-background-color: #101827; -fx-border-color: #7080a0; -fx-border-radius: 50%; }
+.poll-option .radio-button:focused .radio { -fx-border-color: #d3bbff; }
+.poll-option .radio-button:selected .dot { -fx-background-color: #c19fff; }
+.option-count { -fx-text-fill: #d4c3ff; -fx-font-weight: bold; -fx-font-size: 13px; }
+
+.result-meter { -fx-min-height: 8; -fx-pref-height: 8; -fx-max-height: 8; }
+.result-meter > .track { -fx-background-color: #2c3a54; -fx-background-radius: 4; }
+.result-meter > .bar { -fx-background-color: #a880ff; -fx-background-insets: 0; -fx-background-radius: 4; -fx-padding: 4; }
+
+.player-shell .scroll-bar { -fx-background-color: #131d2f; -fx-background-insets: 0; }
+.player-shell .scroll-bar:vertical { -fx-pref-width: 13; }
+.player-shell .scroll-bar .track { -fx-background-color: #19253a; -fx-background-radius: 6; }
+.player-shell .scroll-bar .thumb { -fx-background-color: #50617d; -fx-background-radius: 6; -fx-background-insets: 2; }
+.player-shell .scroll-bar .increment-button, .player-shell .scroll-bar .decrement-button { -fx-background-color: transparent; }
+.player-shell .scroll-bar .increment-arrow, .player-shell .scroll-bar .decrement-arrow { -fx-background-color: #8f9fba; }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.player.PollController"
+      maxWidth="820" spacing="22">
+    <HBox alignment="CENTER_LEFT" spacing="12">
+        <Button fx:id="backToLobbyButton" text="Back to lobby" onAction="#back" styleClass="quiet-button"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="pollPhase" text="Voting open" styleClass="poll-phase"/>
+    </HBox>
+    <VBox spacing="20" styleClass="player-card">
+        <VBox spacing="8">
+            <Label fx:id="pollQuestion" wrapText="true" styleClass="poll-question"/>
+            <Label fx:id="pollTotal" styleClass="muted"/>
+        </VBox>
+        <VBox fx:id="pollOptions" spacing="10"/>
+        <HBox alignment="CENTER_LEFT" spacing="14">
+            <Button fx:id="submitVoteButton" text="Submit vote" onAction="#submit" styleClass="primary-button"
+                    disable="true"/>
+            <Label fx:id="voteMessage" wrapText="true" styleClass="feedback" HBox.hgrow="ALWAYS"/>
+        </HBox>
+    </VBox>
+</VBox>
