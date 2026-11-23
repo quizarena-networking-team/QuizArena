@@ -23,6 +23,8 @@ public class PlayerScreenTest {
     @Test void rejectsLateRepliesAndUnsubscribesAfterLeaving() throws Exception { runScenario("stale"); }
     @Test void lossClearsMembershipAndAllowsSafeReconnect() throws Exception { runScenario("loss"); }
     @Test void playerFlowUsesRealTcpRequestsAndEvents() throws Exception { runScenario("loopback"); }
+    @Test void quizAndPollingShareOneGameplaySocket() throws Exception { runScenario("quiz-loopback"); }
+    @Test void quizSurvivesEarlyEventsAndRebindsAfterConnectionLoss() throws Exception { runScenario("quiz-session"); }
 
     private static void runScenario(String scenario) throws Exception {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
@@ -71,6 +73,8 @@ public class PlayerScreenTest {
                 case "stale" -> PlayerUiScenarios.stale();
                 case "loss" -> PlayerUiScenarios.loss();
                 case "loopback" -> PlayerUiScenarios.loopback();
+                case "quiz-loopback" -> QuizUiScenarios.loopback();
+                case "quiz-session" -> QuizUiScenarios.sessionLifecycle();
                 default -> throw new IllegalArgumentException("Unknown player UI scenario");
             }
         } finally {
