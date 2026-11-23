@@ -10,8 +10,10 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
@@ -21,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
@@ -39,12 +42,17 @@ public final class PlayerSessionController implements AutoCloseable {
     private static final PseudoClass ERROR = PseudoClass.getPseudoClass("error");
 
     private enum State { DISCONNECTED, CONNECTING, CONNECTED, JOINING, JOINED, LEAVING, LOST }
+    private enum QuizInput { PREPARING, READY, UNAVAILABLE }
 
     /** Identity assigned by the server after JOIN_ROOM succeeds. */
     public record JoinedRoom(String roomCode, String playerId, String playerName) {}
 
+    @FXML private BorderPane playerShell;
     @FXML private ScrollPane playerViewport;
     @FXML private StackPane playerPages;
+    @FXML private Label playerWordmark;
+    @FXML private Button quizLobbyButton;
+    @FXML private Label quizInputStatus;
     @FXML private Label connectionStatus;
     @FXML private Button disconnectButton;
     @FXML private Parent connectionView;
@@ -60,6 +68,8 @@ public final class PlayerSessionController implements AutoCloseable {
     private PlayerTransport transport;
     private State state = State.DISCONNECTED;
     private JoinedRoom joined;
+    private JoinedQuizView quiz;
+    private QuizInput quizInput = QuizInput.PREPARING;
     private AutoCloseable lossSubscription;
     private AutoCloseable roomSubscription;
     private long connectionGeneration;
@@ -78,10 +88,20 @@ public final class PlayerSessionController implements AutoCloseable {
         this.transport = Objects.requireNonNull(transport, "transport");
         connectionViewController.bind(this::connect);
         joinViewController.bind(this::join);
-        lobbyViewController.bind(this::leave, this::openPoll);
+        lobbyViewController.bind(this::leave, this::openPoll, this::openQuiz);
         pollViewController.bind(this::vote, this::backToLobby);
         changeState(State.DISCONNECTED);
         show(connectionView);
+        // Member 3's input handlers generate UUIDs on click. Initialize the random source off JavaFX first.
+        onFx(CompletableFuture.runAsync(UUID::randomUUID), (ignored, failure) -> {
+            if (!closed) {
+                quizInput = failure == null ? QuizInput.READY : QuizInput.UNAVAILABLE;
+                if (failure != null) {
+                    LOG.log(System.Logger.Level.WARNING, "Could not initialize quiz request IDs", failure);
+                }
+                updateQuizInput();
+            }
+        });
     }
 
     public Optional<JoinedRoom> joinedRoom() {
@@ -127,7 +147,8 @@ public final class PlayerSessionController implements AutoCloseable {
         joinViewController.show(true, "Waiting for the server to confirm room membership…", false);
         long generation = ++roomGeneration;
         roomSubscription = transport.subscribe(event -> {
-            if (ROOM_EVENTS.contains(event.type()) && event.roomCode() != null && !event.roomCode().isBlank()) {
+            if ((ROOM_EVENTS.contains(event.type()) || QuizEvents.supports(event.type()))
+                    && event.roomCode() != null && !event.roomCode().isBlank()) {
                 Platform.runLater(() -> receive(generation, event));
             }
         });
@@ -152,6 +173,12 @@ public final class PlayerSessionController implements AutoCloseable {
             joined = new JoinedRoom(assignedRoom, playerId, playerName);
             joinViewController.show(false, "", false);
             lobbyViewController.showRoom(assignedRoom, playerName);
+            try {
+                quiz = new JoinedQuizView(transport, joined);
+            } catch (IOException failureToLoad) {
+                LOG.log(System.Logger.Level.WARNING, "Could not load the joined quiz view", failureToLoad);
+                lobbyViewController.message("The quiz screen could not be loaded.", true);
+            }
             changeState(State.JOINED);
             show(lobbyView);
             while (generation == roomGeneration && !joiningEvents.isEmpty()) {
@@ -181,7 +208,9 @@ public final class PlayerSessionController implements AutoCloseable {
             case POLL_STARTED -> {
                 if (pollViewController.start(event.payload())) {
                     lobbyViewController.showPoll(true, false);
-                    openPoll();
+                    if (!showingQuiz()) {
+                        openPoll();
+                    }
                 }
             }
             case POLL_RESULTS -> pollViewController.update(event.payload(), false);
@@ -190,7 +219,35 @@ public final class PlayerSessionController implements AutoCloseable {
                     lobbyViewController.showPoll(true, true);
                 }
             }
-            case ROOM_CLOSED -> returnToJoin("The host closed the room.", true);
+            case ROOM_CLOSED -> {
+                if (quiz != null) {
+                    quiz.disconnected();
+                }
+                returnToJoin("The host closed the room.", true);
+            }
+            default -> receiveQuizEvent(event);
+        }
+    }
+
+    private void receiveQuizEvent(ProtocolMessage event) {
+        if (quiz == null || !quiz.receive(event)) {
+            return;
+        }
+        switch (event.type()) {
+            case QUESTION_STARTED, BUZZER_OPENED, QUIZ_FINISHED -> {
+                lobbyViewController.showQuiz(true, quiz.isFinished());
+                openQuiz();
+                if (showingQuiz() && QUESTION_STARTED.equals(event.type())) {
+                    quiz.revealQuestion();
+                } else if (showingQuiz() && BUZZER_OPENED.equals(event.type())) {
+                    quiz.revealBuzzer();
+                }
+            }
+            case BUZZER_WINNER -> {
+                if (showingQuiz() && joined.playerId().equals(event.payload().get("playerId"))) {
+                    quiz.revealQuestion();
+                }
+            }
             default -> { }
         }
     }
@@ -268,6 +325,21 @@ public final class PlayerSessionController implements AutoCloseable {
         }
     }
 
+    private void openQuiz() {
+        if (state == State.JOINED && quiz != null && quiz.isAvailable()) {
+            if (!showingQuiz()) {
+                playerShell.setCenter(quiz.view());
+                setVisible(quizLobbyButton, true);
+                setVisible(playerWordmark, false);
+                updateQuizInput();
+            }
+            if (quiz.isFinished()) {
+                quiz.revealResults();
+            }
+        }
+    }
+
+    @FXML
     private void backToLobby() {
         if (state == State.JOINED) {
             show(lobbyView);
@@ -289,6 +361,9 @@ public final class PlayerSessionController implements AutoCloseable {
         connectionGeneration++;
         unsubscribe(lossSubscription);
         lossSubscription = null;
+        if (next == State.LOST && quiz != null) {
+            quiz.disconnected();
+        }
         clearRoom();
         transport.disconnect();
         changeState(next);
@@ -312,6 +387,13 @@ public final class PlayerSessionController implements AutoCloseable {
         roomGeneration++;
         unsubscribe(roomSubscription);
         roomSubscription = null;
+        if (quiz != null) {
+            if (showingQuiz()) {
+                playerShell.setCenter(playerViewport);
+            }
+            quiz.close();
+            quiz = null;
+        }
         joined = null;
         joiningEvents.clear();
         lobbyViewController.reset();
@@ -337,14 +419,37 @@ public final class PlayerSessionController implements AutoCloseable {
         disconnectButton.setText(next == State.CONNECTING ? "Cancel" : "Disconnect");
         lobbyViewController.setRoomActions(next == State.JOINED, next == State.LEAVING);
         pollViewController.setRoomActions(next == State.JOINED);
+        updateQuizInput();
     }
 
     private void show(Parent page) {
+        if (playerShell.getCenter() != playerViewport) {
+            playerShell.setCenter(playerViewport);
+        }
+        setVisible(quizLobbyButton, false);
+        setVisible(playerWordmark, true);
+        setVisible(quizInputStatus, false);
         for (Node view : playerPages.getChildren()) {
-            view.setManaged(view == page);
-            view.setVisible(view == page);
+            setVisible(view, view == page);
         }
         playerViewport.setVvalue(0);
+    }
+
+    private boolean showingQuiz() {
+        return quiz != null && playerShell.getCenter() == quiz.view();
+    }
+
+    private void updateQuizInput() {
+        if (quiz != null) {
+            quiz.setInputAllowed(state == State.JOINED && quizInput == QuizInput.READY);
+        }
+        quizInputStatus.setText(quizInput == QuizInput.UNAVAILABLE ? "Quiz controls unavailable" : "Preparing quiz controls…");
+        setVisible(quizInputStatus, showingQuiz() && quizInput != QuizInput.READY);
+    }
+
+    private static void setVisible(Node node, boolean visible) {
+        node.setManaged(visible);
+        node.setVisible(visible);
     }
 
     private CompletableFuture<ProtocolMessage> request(String type, String room, Map<String, Object> payload) {

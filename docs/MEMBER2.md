@@ -296,3 +296,72 @@ callbacks. The loopback UI test sends real `JOIN_ROOM`, `SUBMIT_VOTE`, and
 `LEAVE_ROOM` frames through the Phase A client to a test-only peer. It uses the
 same socket through the whole flow. The production NIO entry point is still a
 placeholder in this checkout.
+
+## Phase D — Quiz screens over the gameplay connection
+
+`PlayerSessionController` loads Member 3's `QuizScreen.fxml` after a successful
+`JOIN_ROOM_RESULT`. `JoinedQuizView` binds the existing controller with the
+confirmed room code and server-assigned player ID before the shell drains
+events buffered during join. The player shell mounts the quiz view in its
+center, and the quiz keeps its own scroll pane. Returning to the lobby or
+polling keeps the same room membership, TCP connection, and quiz controller.
+
+`QuizTransportAdapter` implements `QuizClientPort`. `request` passes the
+original `ProtocolMessage` to the session's `PlayerTransport`, which delegates
+to `TcpQuizClient` in production. This preserves request IDs, asynchronous
+replies, timeouts, and connection errors. The adapter's subscriber receives
+quiz pushes from the shell's existing room subscription on the JavaFX thread.
+The subscription belongs to the current quiz view and is removed when it
+closes. `QuizEvents` checks the fields the existing controllers consume before
+forwarding a push. Member 3's controllers generate UUIDs when sending answers
+and buzzer requests. The shell initializes the UUID source on a background
+worker and enables quiz input once it is ready.
+
+`QUESTION_STARTED` and `BUZZER_OPENED` bring the quiz into view. The screen
+reveals the buzzer card when the host opens a buzzer round and returns to the
+question for the player identified by `BUZZER_WINNER`. `QUESTION_ENDED`
+reveals the server's correct answer, and `LEADERBOARD_UPDATED` refreshes the
+server's scores. `QUIZ_FINISHED` with `persisted: true` shows the saved final
+standings and hides completed input cards. Final standings remain available
+from the lobby for the current room session. The shell can still receive live
+poll updates while the quiz is visible. Players can switch to the poll from
+the lobby, and an incoming poll leaves a visible quiz or its final standings
+in place.
+
+The integration uses the `docs/MEMBER3.md` payload proposal. Input requests
+send `questionId` and `roundId`, plus `optionId` for `SUBMIT_ANSWER`. The
+adapter returns `SUBMIT_ANSWER_RESULT`, `PRESS_BUZZER_RESULT`, and any
+`LEADERBOARD_RESULT` through their correlated futures. The screen's current
+leaderboard and results come from pushes. Leaderboard rows need integer `rank`
+and `score` values and a `playerName`. The rank field extends the leaderboard
+example in the shared protocol and needs agreement before production rollout.
+The server owns round deadlines, answer validity, buzzer winners, points, and
+when the correct option and final results can be revealed.
+
+On a TCP loss or `ROOM_CLOSED` event the shell calls `disconnected()` on the
+quiz controller before closing the room's view. Confirmed leave and app
+shutdown also close the controller and remove its listener. Rejoining binds
+a fresh quiz instance to the new player ID. The room generation rejects queued
+events from the previous subscription, and the old quiz controller ignores
+late replies after it closes.
+
+### Verification and remaining integration
+
+```powershell
+mvn clean test
+mvn "-Dquizarena.uiTests=true" clean test
+mvn clean javafx:run
+```
+
+The adapter tests exercise reordered TCP replies, timeout, disconnect, event
+validation, and subscription removal. The opt-in JavaFX scenarios cover
+early quiz events, questions, buzzer winner identity, leaderboard and final
+results, polling on the same loopback socket, leaving, and reconnecting. The
+loopback peer and its gameplay data are test fixtures.
+
+Production still needs Member 1's NIO dispatcher to route quiz requests and
+send ordered room announcements, and Member 5's authenticated host controls
+and result persistence wiring. The initial lifecycle assumes one quiz per
+joined room session. Joining or reconnecting during an already running quiz
+requires the server to provide current state and participation rules. The
+player UI handles subsequent server events and still needs that team handoff.

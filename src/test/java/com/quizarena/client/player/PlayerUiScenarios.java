@@ -39,8 +39,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class PlayerUiScenarios {
-    private static final String ROOM = "ABC123";
-    private static final InetAddress LOOPBACK = InetAddress.getLoopbackAddress();
+    static final String ROOM = "ABC123";
+    static final InetAddress LOOPBACK = InetAddress.getLoopbackAddress();
 
     private PlayerUiScenarios() {}
 
@@ -374,7 +374,7 @@ final class PlayerUiScenarios {
         }
     }
 
-    private static void connect(Ui ui, FakeTransport transport) throws Exception {
+    static void connect(Ui ui, FakeTransport transport) throws Exception {
         onFx(() -> ui.startConnection("localhost", 5000));
         transport.completeConnect();
         onFx(() -> ui.assertPage("joinView"));
@@ -390,39 +390,39 @@ final class PlayerUiScenarios {
         return Map.of("players", List.of(players).stream().map(name -> Map.of("playerName", name)).toList());
     }
 
-    private static ProtocolMessage pollStarted(String pollId, String question) {
+    static ProtocolMessage pollStarted(String pollId, String question) {
         return event(POLL_STARTED, Map.of("pollId", pollId, "question", question,
                 "options", Map.of("A", "TCP", "B", "UDP"), "counts", Map.of("A", 0, "B", 0)));
     }
 
-    private static ProtocolMessage counts(String type, String pollId, int a, int b) {
+    static ProtocolMessage counts(String type, String pollId, int a, int b) {
         return event(type, Map.of("pollId", pollId, "counts", Map.of("A", a, "B", b)));
     }
 
-    private static ProtocolMessage event(String type, Map<String, Object> payload) {
+    static ProtocolMessage event(String type, Map<String, Object> payload) {
         return new ProtocolMessage(type, null, ROOM, null, null, payload);
     }
 
-    private static ProtocolMessage reply(ProtocolMessage request, String type, String room, String status, String error,
+    static ProtocolMessage reply(ProtocolMessage request, String type, String room, String status, String error,
                                          Map<String, Object> payload) {
         return new ProtocolMessage(type, request.requestId(), room, status, error, payload);
     }
 
-    private static ProtocolMessage read(BufferedReader input) throws IOException {
+    static ProtocolMessage read(BufferedReader input) throws IOException {
         String line = input.readLine();
         assertNotNull(line, "Expected a request over the player's TCP socket");
         return MessageCodec.decodeJson(line.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void send(Socket socket, ProtocolMessage message) throws IOException {
+    static void send(Socket socket, ProtocolMessage message) throws IOException {
         socket.getOutputStream().write(MessageCodec.encodeLine(message));
     }
 
-    private static void onFx(Runnable action) throws Exception {
+    static void onFx(Runnable action) throws Exception {
         fxResult(() -> { action.run(); return null; });
     }
 
-    private static <T> T fxResult(Callable<T> action) throws Exception {
+    static <T> T fxResult(Callable<T> action) throws Exception {
         var task = new FutureTask<>(action);
         Platform.runLater(task);
         try {
@@ -440,7 +440,7 @@ final class PlayerUiScenarios {
         }
     }
 
-    private record Ui(Parent root, PlayerSessionController session) implements AutoCloseable {
+    record Ui(Parent root, PlayerSessionController session) implements AutoCloseable {
         static Ui open(PlayerTransport transport) throws Exception {
             return fxResult(() -> {
                 var loader = new FXMLLoader(Ui.class.getResource("/fxml/player/PlayerShell.fxml"));
@@ -522,7 +522,7 @@ final class PlayerUiScenarios {
         @Override public void close() throws Exception { onFx(session::close); }
     }
 
-    private record Pending(ProtocolMessage request, CompletableFuture<ProtocolMessage> response) {
+    record Pending(ProtocolMessage request, CompletableFuture<ProtocolMessage> response) {
         void respond(String type, String status, String error, Map<String, Object> payload) {
             respond(type, request.roomCode(), status, error, payload);
         }
@@ -537,7 +537,7 @@ final class PlayerUiScenarios {
         }
     }
 
-    private static final class FakeTransport implements PlayerTransport {
+    static final class FakeTransport implements PlayerTransport {
         final List<Pending> requests = new CopyOnWriteArrayList<>();
         volatile CompletableFuture<Void> connecting;
         volatile Consumer<ProtocolMessage> eventListener;
