@@ -6,7 +6,10 @@ import com.quizarena.protocol.ProtocolMessage;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+
+import static com.quizarena.protocol.MessageTypes.*;
 
 /** A room-scoped quiz port used on JavaFX. Pushes arrive through the shell's ordered room route. */
 final class QuizTransportAdapter implements QuizClientPort, AutoCloseable {
@@ -28,7 +31,43 @@ final class QuizTransportAdapter implements QuizClientPort, AutoCloseable {
         if (!roomCode.equals(request.roomCode())) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("The request belongs to another room"));
         }
-        return transport.request(request);
+        String expectedType = switch (request.type()) {
+            case SUBMIT_ANSWER -> SUBMIT_ANSWER_RESULT;
+            case PRESS_BUZZER -> PRESS_BUZZER_RESULT;
+            case GET_LEADERBOARD -> LEADERBOARD_RESULT;
+            default -> null;
+        };
+        var response = transport.request(request);
+        return expectedType == null ? response : response.thenApply(reply -> verifyReply(request, expectedType, reply));
+    }
+
+    private ProtocolMessage verifyReply(ProtocolMessage request, String expectedType, ProtocolMessage reply) {
+        if (reply == null || !expectedType.equals(reply.type())
+                || !Objects.equals(request.requestId(), reply.requestId())
+                || (reply.roomCode() != null && !roomCode.equals(reply.roomCode()))) {
+            throw invalidReply();
+        }
+        if ("ERROR".equals(reply.status())) {
+            return reply;
+        }
+        if (!"OK".equals(reply.status())) {
+            throw invalidReply();
+        }
+        if (GET_LEADERBOARD.equals(request.type())) {
+            return reply;
+        }
+
+        String successField = SUBMIT_ANSWER.equals(request.type()) ? "accepted" : "winner";
+        if (!Boolean.TRUE.equals(reply.payload().get(successField))
+                || !Objects.equals(request.payload().get("questionId"), reply.payload().get("questionId"))
+                || !Objects.equals(request.payload().get("roundId"), reply.payload().get("roundId"))) {
+            throw invalidReply();
+        }
+        return reply;
+    }
+
+    private static CompletionException invalidReply() {
+        return new CompletionException(new IOException("The server reply did not match the quiz request"));
     }
 
     @Override

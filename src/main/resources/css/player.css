@@ -160,3 +160,18 @@
 .player-shell .scroll-bar .thumb { -fx-background-color: #50617d; -fx-background-radius: 6; -fx-background-insets: 2; }
 .player-shell .scroll-bar .increment-button, .player-shell .scroll-bar .decrement-button { -fx-background-color: transparent; }
 .player-shell .scroll-bar .increment-arrow, .player-shell .scroll-bar .decrement-arrow { -fx-background-color: #8f9fba; }
+
+.player-shell .quiz-screen .table-view {
+    -fx-background-color: #152135;
+    -fx-border-color: #34455f;
+    -fx-control-inner-background: #152135;
+    -fx-control-inner-background-alt: #1a263b;
+    -fx-selection-bar: #4b347c;
+    -fx-selection-bar-non-focused: #382d57;
+    -fx-table-cell-border-color: #2a3850;
+}
+
+.player-shell .quiz-screen .column-header-background { -fx-background-color: #25344e; }
+.player-shell .quiz-screen .column-header, .player-shell .quiz-screen .filler { -fx-background-color: transparent; }
+.player-shell .quiz-screen .table-cell, .player-shell .quiz-screen .table-view .label { -fx-text-fill: #e4ebf9; }
+.player-shell .quiz-screen .quiz-card .label:disabled { -fx-opacity: 1; }

@@ -7,6 +7,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TableView;
 import javafx.scene.layout.BorderPane;
 
 import java.io.IOException;
@@ -33,6 +34,8 @@ final class JoinedQuizView implements AutoCloseable {
         scroll = (ScrollPane) view.getCenter();
         question = scroll.getContent().lookup("#question");
         buzzer = scroll.getContent().lookup("#buzzer");
+        var leaderboard = (TableView<?>) scroll.getContent().lookup("#leaderboardTable");
+        leaderboard.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         adapter = new QuizTransportAdapter(transport, room.roomCode());
         controller.bind(adapter, room.roomCode(), room.playerId());
     }
@@ -65,23 +68,21 @@ final class JoinedQuizView implements AutoCloseable {
         buzzer.setDisable(!allowed);
     }
 
-    void revealQuestion() {
-        scrollAfterEvent(() -> scroll.setVvalue(0));
+    void revealTop() {
+        scrollAfterEvent(() -> scroll.setVvalue(scroll.getVmin()));
     }
 
     void revealBuzzer() {
         // The controller and layout need to apply the new round before its card can be positioned.
         scrollAfterEvent(() -> {
-            view.applyCss();
-            view.layout();
-            double scrollable = scroll.getContent().getLayoutBounds().getHeight() - scroll.getViewportBounds().getHeight();
-            double offset = buzzer.getBoundsInParent().getMinY();
+            Parent shell = view.getScene().getRoot();
+            shell.applyCss();
+            shell.layout();
+            var content = scroll.getContent().getLayoutBounds();
+            double scrollable = content.getHeight() - scroll.getViewportBounds().getHeight();
+            double offset = buzzer.getBoundsInParent().getMinY() - content.getMinY() - 8;
             scroll.setVvalue(scrollable > 0 ? Math.clamp(offset / scrollable, 0, 1) : 0);
         });
-    }
-
-    void revealResults() {
-        scrollAfterEvent(() -> scroll.setVvalue(1));
     }
 
     private void scrollAfterEvent(Runnable scrollAction) {

@@ -50,8 +50,10 @@ class QuizTransportAdapterTest {
                 assertEquals(answer, read(input));
                 assertEquals(buzzer, read(input));
 
-                var buzzerReply = new ProtocolMessage(PRESS_BUZZER_RESULT, buzzer.requestId(), ROOM, "OK", null, Map.of("winner", true));
-                var answerReply = new ProtocolMessage(SUBMIT_ANSWER_RESULT, answer.requestId(), ROOM, "OK", null, Map.of("accepted", true));
+                var buzzerReply = new ProtocolMessage(PRESS_BUZZER_RESULT, buzzer.requestId(), ROOM, "OK", null,
+                        Map.of("winner", true, "questionId", "q2", "roundId", "r2"));
+                var answerReply = new ProtocolMessage(SUBMIT_ANSWER_RESULT, answer.requestId(), ROOM, "OK", null,
+                        Map.of("accepted", true, "questionId", "q1", "roundId", "r1"));
                 var output = peer.getOutputStream();
                 output.write(MessageCodec.encodeLine(buzzerReply));
                 output.write(MessageCodec.encodeLine(answerReply));
@@ -66,6 +68,43 @@ class QuizTransportAdapterTest {
                 assertEquals("connection-lost", read(input).requestId());
                 peer.close();
                 assertInstanceOf(IOException.class, assertThrows(ExecutionException.class, () -> lost.get(5, SECONDS)).getCause());
+            }
+        }
+    }
+
+    @Test
+    void rejectsMisroutedQuizSuccessRepliesAndPreservesServerErrors() throws Exception {
+        var loopback = InetAddress.getLoopbackAddress();
+        try (var listener = new ServerSocket(0, 1, loopback);
+             var transport = new PlayerTransport.Tcp(new TcpQuizClient());
+             var adapter = new QuizTransportAdapter(transport, ROOM)) {
+            listener.setSoTimeout(5_000);
+            transport.connect(loopback.getHostAddress(), listener.getLocalPort()).get(5, SECONDS);
+            try (var peer = listener.accept()) {
+                peer.setSoTimeout(5_000);
+                var input = new BufferedReader(new InputStreamReader(peer.getInputStream(), StandardCharsets.UTF_8));
+                var invalidReplies = List.of(
+                        new ProtocolMessage(PONG, "wrong-type", ROOM, "OK", null, Map.of()),
+                        new ProtocolMessage(SUBMIT_ANSWER_RESULT, "wrong-round", ROOM, "OK", null,
+                                Map.of("accepted", true, "questionId", "q1", "roundId", "older")),
+                        new ProtocolMessage(SUBMIT_ANSWER_RESULT, "wrong-room", "OTHER", "OK", null,
+                                Map.of("accepted", true, "questionId", "q1", "roundId", "r1")),
+                        new ProtocolMessage(SUBMIT_ANSWER_RESULT, "missing-acceptance", ROOM, "OK", null,
+                                Map.of("questionId", "q1", "roundId", "r1")));
+                for (ProtocolMessage reply : invalidReplies) {
+                    var response = adapter.request(answer(reply.requestId()));
+                    assertEquals(reply.requestId(), read(input).requestId());
+                    peer.getOutputStream().write(MessageCodec.encodeLine(reply));
+                    assertInstanceOf(IOException.class,
+                            assertThrows(ExecutionException.class, () -> response.get(5, SECONDS)).getCause());
+                    assertTrue(transport.isConnected());
+                }
+
+                var response = adapter.request(answer("rejected"));
+                assertEquals("rejected", read(input).requestId());
+                var rejection = new ProtocolMessage(SUBMIT_ANSWER_RESULT, "rejected", ROOM, "ERROR", "QUESTION_CLOSED", Map.of());
+                peer.getOutputStream().write(MessageCodec.encodeLine(rejection));
+                assertEquals(rejection, response.get(5, SECONDS));
             }
         }
     }
@@ -110,5 +149,10 @@ class QuizTransportAdapterTest {
         String line = input.readLine();
         assertNotNull(line);
         return MessageCodec.decodeJson(line.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static ProtocolMessage answer(String requestId) {
+        return new ProtocolMessage(SUBMIT_ANSWER, requestId, ROOM, null, null,
+                Map.of("questionId", "q1", "roundId", "r1", "optionId", "A"));
     }
 }

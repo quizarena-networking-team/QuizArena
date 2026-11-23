@@ -37,8 +37,9 @@ public final class TcpQuizClient implements AutoCloseable {
     private final List<Subscription<ProtocolMessage>> eventListeners = new CopyOnWriteArrayList<>();
     private final List<Subscription<IOException>> lossListeners = new CopyOnWriteArrayList<>();
 
-    // The lock protects the connection lifecycle and each session's pending requests.
+    // The lock protects the connection lifecycle, the retiring event worker, and pending requests.
     private Session current;
+    private Session drainingEvents;
     private long generation;
     private boolean closed;
 
@@ -65,6 +66,7 @@ public final class TcpQuizClient implements AutoCloseable {
                 return CompletableFuture.failedFuture(new IllegalStateException(closed ? "Client is closed"
                         : "A connection is already open or being established"));
             }
+            discardDrainingEvents();
             Session session = new Session(++generation);
             current = session;
             session.connection.whenComplete((ignored, failure) -> {
@@ -128,6 +130,7 @@ public final class TcpQuizClient implements AutoCloseable {
     public void disconnect() {
         Session session;
         synchronized (lock) {
+            discardDrainingEvents();
             session = current;
         }
         if (session != null) {
@@ -253,6 +256,9 @@ public final class TcpQuizClient implements AutoCloseable {
         boolean wasConnected;
         synchronized (lock) {
             if (current != session) {
+                if (!unexpected && drainingEvents == session) {
+                    discardDrainingEvents();
+                }
                 return;
             }
             current = null;
@@ -260,8 +266,7 @@ public final class TcpQuizClient implements AutoCloseable {
             outstanding = List.copyOf(session.pending.values());
             session.pending.clear();
             if (unexpected && wasConnected && !closed) {
-                enqueue(session, List.copyOf(lossListeners), cause);
-                session.events.shutdown();
+                drainConnectionLoss(session, cause);
             } else {
                 session.discardEvents = true;
                 session.events.shutdownNow();
@@ -284,6 +289,32 @@ public final class TcpQuizClient implements AutoCloseable {
         }
     }
 
+    private void drainConnectionLoss(Session session, IOException cause) {
+        drainingEvents = session;
+        List<Subscription<IOException>> subscriptions = List.copyOf(lossListeners);
+        // The last queue slot is reserved for the ordered loss notification and worker cleanup.
+        session.events.execute(() -> {
+            try {
+                deliver(session, subscriptions, cause);
+            } finally {
+                synchronized (lock) {
+                    if (drainingEvents == session) {
+                        drainingEvents = null;
+                    }
+                }
+            }
+        });
+        session.events.shutdown();
+    }
+
+    private void discardDrainingEvents() {
+        if (drainingEvents != null) {
+            drainingEvents.discardEvents = true;
+            drainingEvents.events.shutdownNow();
+            drainingEvents = null;
+        }
+    }
+
     private <T> AutoCloseable subscribe(List<Subscription<T>> listeners, Consumer<T> listener) {
         var subscription = new Subscription<>(Objects.requireNonNull(listener, "listener"));
         synchronized (lock) {
@@ -299,25 +330,24 @@ public final class TcpQuizClient implements AutoCloseable {
     }
 
     private <T> void enqueue(Session session, List<Subscription<T>> subscriptions, T value) {
-        if (subscriptions.isEmpty()) {
-            return;
-        }
-        session.events.execute(() -> {
-            for (Subscription<T> subscription : subscriptions) {
-                synchronized (lock) {
-                    if (closed || session.discardEvents || session.generation != generation) {
-                        return;
-                    }
-                }
-                if (subscription.active) {
-                    try {
-                        subscription.listener.accept(value);
-                    } catch (RuntimeException failure) {
-                        LOGGER.log(System.Logger.Level.WARNING, "TCP client listener failed", failure);
-                    }
+        session.events.execute(() -> deliver(session, subscriptions, value));
+    }
+
+    private <T> void deliver(Session session, List<Subscription<T>> subscriptions, T value) {
+        for (Subscription<T> subscription : subscriptions) {
+            synchronized (lock) {
+                if (closed || session.discardEvents || session.generation != generation) {
+                    return;
                 }
             }
-        });
+            if (subscription.active) {
+                try {
+                    subscription.listener.accept(value);
+                } catch (RuntimeException failure) {
+                    LOGGER.log(System.Logger.Level.WARNING, "TCP client listener failed", failure);
+                }
+            }
+        }
     }
 
     private static <T> void settle(CompletableFuture<T> future, T value, Throwable failure) {

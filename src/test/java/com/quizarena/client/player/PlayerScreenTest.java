@@ -25,6 +25,8 @@ public class PlayerScreenTest {
     @Test void playerFlowUsesRealTcpRequestsAndEvents() throws Exception { runScenario("loopback"); }
     @Test void quizAndPollingShareOneGameplaySocket() throws Exception { runScenario("quiz-loopback"); }
     @Test void quizSurvivesEarlyEventsAndRebindsAfterConnectionLoss() throws Exception { runScenario("quiz-session"); }
+    @Test void connectionLossWinsOverPendingRepliesAfterPollAndQuizNavigation() throws Exception { runScenario("reply-loss-race"); }
+    @Test void compactQuizShowsTheBuzzerAndAllFinalResultsColumns() throws Exception { runScenario("quiz-compact"); }
 
     private static void runScenario(String scenario) throws Exception {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
@@ -75,6 +77,8 @@ public class PlayerScreenTest {
                 case "loopback" -> PlayerUiScenarios.loopback();
                 case "quiz-loopback" -> QuizUiScenarios.loopback();
                 case "quiz-session" -> QuizUiScenarios.sessionLifecycle();
+                case "reply-loss-race" -> QuizUiScenarios.replyLossRace();
+                case "quiz-compact" -> QuizUiScenarios.compactQuiz();
                 default -> throw new IllegalArgumentException("Unknown player UI scenario");
             }
         } finally {

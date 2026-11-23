@@ -37,6 +37,7 @@ public final class PlayerSessionController implements AutoCloseable {
     private static final System.Logger LOG = System.getLogger(PlayerSessionController.class.getName());
     private static final int JOIN_EVENT_LIMIT = 256;
     private static final Set<String> ROOM_EVENTS = Set.of(LOBBY_UPDATED, POLL_STARTED, POLL_RESULTS, POLL_CLOSED, ROOM_CLOSED);
+    private static final String CONNECTION_LOST_MESSAGE = "Connection to the server was lost. Connect again to rejoin.";
     private static final PseudoClass ONLINE = PseudoClass.getPseudoClass("online");
     private static final PseudoClass BUSY = PseudoClass.getPseudoClass("busy");
     private static final PseudoClass ERROR = PseudoClass.getPseudoClass("error");
@@ -117,7 +118,7 @@ public final class PlayerSessionController implements AutoCloseable {
         connectionViewController.show(true, "Opening a gameplay connection…", false);
         lossSubscription = transport.onConnectionLost(cause -> Platform.runLater(() -> {
             if (generation == connectionGeneration) {
-                resetConnection(State.LOST, "Connection to the server was lost. Connect again to rejoin.");
+                resetConnection(State.LOST, CONNECTION_LOST_MESSAGE);
             }
         }));
         onFx(transport.connect(address.host(), address.port()), (ignored, failure) -> {
@@ -136,11 +137,7 @@ public final class PlayerSessionController implements AutoCloseable {
     }
 
     private void join(String roomCode, String playerName) {
-        if (state != State.CONNECTED || closed) {
-            return;
-        }
-        if (!transport.isConnected()) {
-            resetConnection(State.LOST, "Connection to the server was lost. Connect again to rejoin.");
+        if (state != State.CONNECTED || closed || !verifyConnection()) {
             return;
         }
         changeState(State.JOINING);
@@ -153,7 +150,7 @@ public final class PlayerSessionController implements AutoCloseable {
             }
         });
         onFx(request(JOIN_ROOM, roomCode, Map.of("playerName", playerName)), (reply, failure) -> {
-            if (generation != roomGeneration) {
+            if (generation != roomGeneration || !verifyConnection()) {
                 return;
             }
             if (failure != null || !isReply(reply, JOIN_ROOM_RESULT)) {
@@ -238,14 +235,14 @@ public final class PlayerSessionController implements AutoCloseable {
                 lobbyViewController.showQuiz(true, quiz.isFinished());
                 openQuiz();
                 if (showingQuiz() && QUESTION_STARTED.equals(event.type())) {
-                    quiz.revealQuestion();
+                    quiz.revealTop();
                 } else if (showingQuiz() && BUZZER_OPENED.equals(event.type())) {
                     quiz.revealBuzzer();
                 }
             }
             case BUZZER_WINNER -> {
                 if (showingQuiz() && joined.playerId().equals(event.payload().get("playerId"))) {
-                    quiz.revealQuestion();
+                    quiz.revealTop();
                 }
             }
             default -> { }
@@ -253,14 +250,14 @@ public final class PlayerSessionController implements AutoCloseable {
     }
 
     private void leave() {
-        if (state != State.JOINED || joined == null) {
+        if (state != State.JOINED || joined == null || !verifyConnection()) {
             return;
         }
         long generation = roomGeneration;
         changeState(State.LEAVING);
         lobbyViewController.message("Waiting for the server to confirm you left the room…", false);
         onFx(request(LEAVE_ROOM, joined.roomCode(), Map.of()), (reply, failure) -> {
-            if (generation != roomGeneration) {
+            if (generation != roomGeneration || !verifyConnection()) {
                 return;
             }
             if (failure != null || !isReply(reply, LEAVE_ROOM_RESULT)) {
@@ -277,14 +274,15 @@ public final class PlayerSessionController implements AutoCloseable {
     }
 
     private void vote(String optionId) {
-        if (state != State.JOINED || joined == null || pollViewController.pollId() == null || pollViewController.isClosed()) {
+        if (state != State.JOINED || joined == null || pollViewController.pollId() == null
+                || pollViewController.isClosed() || !verifyConnection()) {
             return;
         }
         long generation = roomGeneration;
         String pollId = pollViewController.pollId();
         pollViewController.setVoteState(SENDING, "Waiting for the server to confirm your vote…", false);
         onFx(request(SUBMIT_VOTE, joined.roomCode(), Map.of("pollId", pollId, "optionId", optionId)), (reply, failure) -> {
-            if (generation == roomGeneration && pollId.equals(pollViewController.pollId())) {
+            if (generation == roomGeneration && pollId.equals(pollViewController.pollId()) && verifyConnection()) {
                 completeVote(pollId, optionId, reply, failure);
             }
         });
@@ -331,10 +329,10 @@ public final class PlayerSessionController implements AutoCloseable {
                 playerShell.setCenter(quiz.view());
                 setVisible(quizLobbyButton, true);
                 setVisible(playerWordmark, false);
-                updateQuizInput();
             }
+            updateQuizInput();
             if (quiz.isFinished()) {
-                quiz.revealResults();
+                quiz.revealTop();
             }
         }
     }
@@ -373,14 +371,22 @@ public final class PlayerSessionController implements AutoCloseable {
     }
 
     private void returnToJoin(String message, boolean error) {
-        if (!transport.isConnected()) {
-            resetConnection(State.LOST, "Connection to the server was lost. Connect again to rejoin.");
+        if (!verifyConnection()) {
             return;
         }
         clearRoom();
         changeState(State.CONNECTED);
         joinViewController.show(false, message, error);
         show(joinView);
+    }
+
+    private boolean verifyConnection() {
+        if (transport.isConnected()) {
+            return true;
+        }
+        // The request future and the socket loss notification can reach JavaFX in either order.
+        resetConnection(State.LOST, CONNECTION_LOST_MESSAGE);
+        return false;
     }
 
     private void clearRoom() {
@@ -444,7 +450,7 @@ public final class PlayerSessionController implements AutoCloseable {
             quiz.setInputAllowed(state == State.JOINED && quizInput == QuizInput.READY);
         }
         quizInputStatus.setText(quizInput == QuizInput.UNAVAILABLE ? "Quiz controls unavailable" : "Preparing quiz controls…");
-        setVisible(quizInputStatus, showingQuiz() && quizInput != QuizInput.READY);
+        setVisible(quizInputStatus, showingQuiz() && !quiz.isFinished() && quizInput != QuizInput.READY);
     }
 
     private static void setVisible(Node node, boolean visible) {
