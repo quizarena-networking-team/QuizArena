@@ -2,12 +2,15 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:id="playerShell"
             fx:controller="com.quizarena.client.player.PlayerSessionController"
             stylesheets="@../../css/player.css" styleClass="player-shell">
     <top>
         <HBox alignment="CENTER_LEFT" spacing="14" styleClass="player-header">
-            <Label text="QuizArena" styleClass="wordmark"/>
+            <Label fx:id="playerWordmark" text="QuizArena" styleClass="wordmark"/>
+            <Button fx:id="quizLobbyButton" text="Back to lobby" onAction="#backToLobby" styleClass="quiet-button"
+                    visible="false" managed="false"/>
+            <Label fx:id="quizInputStatus" styleClass="muted" visible="false" managed="false"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="connectionStatus" text="Disconnected" styleClass="status-pill"/>
             <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnect" styleClass="quiet-button"

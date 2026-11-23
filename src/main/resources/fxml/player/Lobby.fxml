@@ -33,6 +33,8 @@
                 <Label fx:id="lobbyPlayer" styleClass="identity-name" wrapText="true"/>
             </VBox>
             <Separator/>
+            <Button fx:id="openQuizButton" text="Open quiz" onAction="#openQuiz" styleClass="primary-button"
+                    visible="false" managed="false"/>
             <Label fx:id="lobbyPollStatus" wrapText="true" styleClass="muted"/>
             <Button fx:id="openPollButton" text="Open live poll" onAction="#openPoll" styleClass="primary-button"
                     visible="false" managed="false"/>

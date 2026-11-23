@@ -17,18 +17,22 @@ public final class LobbyController {
     @FXML private ListView<String> roster;
     @FXML private Label rosterPlaceholder;
     @FXML private Button leaveButton;
+    @FXML private Button openQuizButton;
     @FXML private Button openPollButton;
     @FXML private Label lobbyPollStatus;
     @FXML private Label lobbyMessage;
 
     private Runnable leave;
     private Runnable openPoll;
+    private Runnable openQuiz;
     private boolean roomActions;
     private boolean hasPoll;
+    private boolean hasQuiz;
 
-    void bind(Runnable leave, Runnable openPoll) {
+    void bind(Runnable leave, Runnable openPoll, Runnable openQuiz) {
         this.leave = leave;
         this.openPoll = openPoll;
+        this.openQuiz = openQuiz;
         roster.setPlaceholder(rosterPlaceholder);
     }
 
@@ -45,6 +49,7 @@ public final class LobbyController {
         rosterCount.setText("");
         rosterPlaceholder.setText("Waiting for the server's player list.");
         showPoll(false, false);
+        showQuiz(false, false);
         message("", false);
     }
 
@@ -69,6 +74,15 @@ public final class LobbyController {
         leaveButton.setDisable(!enabled);
         leaveButton.setText(leaving ? "Leaving…" : "Leave room");
         openPollButton.setDisable(!enabled || !hasPoll);
+        openQuizButton.setDisable(!enabled || !hasQuiz);
+    }
+
+    void showQuiz(boolean available, boolean finished) {
+        hasQuiz = available;
+        openQuizButton.setText(finished ? "View quiz results" : "Open quiz");
+        openQuizButton.setManaged(available);
+        openQuizButton.setVisible(available);
+        openQuizButton.setDisable(!available || !roomActions);
     }
 
     void message(String message, boolean error) {
@@ -80,4 +94,5 @@ public final class LobbyController {
 
     @FXML private void leave() { leave.run(); }
     @FXML private void openPoll() { openPoll.run(); }
+    @FXML private void openQuiz() { openQuiz.run(); }
 }
