@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.quiz.QuestionController"
+      spacing="14" styleClass="quiz-card">
+    <Label fx:id="countdown" text="Waiting for the host" styleClass="countdown"/>
+    <Label fx:id="questionText" text="Your next question will appear here." wrapText="true" styleClass="question-text"/>
+    <RadioButton fx:id="optionA" text="A" wrapText="true" disable="true"/>
+    <RadioButton fx:id="optionB" text="B" wrapText="true" disable="true"/>
+    <RadioButton fx:id="optionC" text="C" wrapText="true" disable="true"/>
+    <RadioButton fx:id="optionD" text="D" wrapText="true" disable="true"/>
+    <Button fx:id="submit" text="Submit answer" onAction="#submitAnswer" disable="true" styleClass="primary-button"/>
+    <Label fx:id="status" text="One answer per player. The server decides the deadline." wrapText="true" styleClass="muted"/>
+</VBox>

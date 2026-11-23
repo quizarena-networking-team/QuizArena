@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.quiz.LeaderboardController"
+      spacing="12" styleClass="quiz-card">
+    <Label fx:id="heading" text="Leaderboard" styleClass="section-title"/>
+    <TableView fx:id="leaderboardTable" prefHeight="240" editable="false">
+        <columns>
+            <TableColumn fx:id="rank" text="Rank" prefWidth="80" sortable="false"/>
+            <TableColumn fx:id="player" text="Player" prefWidth="420" sortable="false"/>
+            <TableColumn fx:id="score" text="Score" prefWidth="130" sortable="false"/>
+        </columns>
+    </TableView>
+</VBox>
