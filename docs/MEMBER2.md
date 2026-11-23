@@ -226,3 +226,73 @@ rejoining under a new ID is treated as a new voter. Production NIO routing and
 TLS host commands depend on the respective teammates. Phase C will add voting
 and results screens using the existing TCP client. Showing a current poll to a
 late joiner will need a room-level snapshot handoff with Member 1.
+
+## Phase C — JavaFX player client
+
+`ClientLauncher` starts `ClientApp`. The app loads `PlayerShell.fxml`, binds
+its `PlayerSessionController` to one `TcpQuizClient`, and closes that session
+on application shutdown. The shell keeps a connection-status bar and switches
+between the views in `src/main/resources/fxml/player`. `player.css` uses the
+same navy and purple palette as the quiz screens.
+
+| View | Behavior |
+|---|---|
+| `Connection.fxml` | Validates the hostname or IP and TCP port, defaults to port `5000`, and shows progress, errors, and cancel or reconnect actions. |
+| `JoinRoom.fxml` | Sends `JOIN_ROOM` with a fresh request ID, the room code, and `payload.playerName`. The lobby opens after an `OK` `JOIN_ROOM_RESULT` with a server-assigned `playerId`. |
+| `Lobby.fxml` | Shows the joined room, display name, and the latest player-list snapshot supplied by the server. Sends `LEAVE_ROOM` and waits for its reply. |
+| `Poll.fxml` | Opens for `POLL_STARTED`, allows selecting and submitting one option at a time, and displays aggregate counts from `POLL_RESULTS` and `POLL_CLOSED`. The lobby can reopen the active poll or its final results. |
+
+The shell tracks disconnected, connecting, connected, joining, joined, leaving,
+and lost states. The same TCP connection carries join, lobby, polls, and leave.
+Player actions use sequential request IDs unique to the session for correlation.
+A successful join uses the server's `roomCode` when included, or the submitted
+code otherwise. An uncertain join or leave closes the connection so a retry
+starts with a fresh server session. Confirmed leave and `ROOM_CLOSED` return to
+the join screen while the gameplay socket is still available.
+
+### Event delivery and voting
+
+The session subscribes to connection loss before connecting and to room events
+before requesting to join. It buffers up to 256 relevant early room events and
+applies events for the confirmed room after `JOIN_ROOM_RESULT`. Network events
+and reply completions enter JavaFX through `Platform.runLater`. Connection and
+room generations reject already queued callbacks from former sessions, and
+vote replies additionally match the active poll ID. Leave, disconnect, and
+shutdown release the corresponding subscriptions.
+
+Poll views use the Phase B payload proposal above. Options are displayed by
+option ID. An accepted vote locks the controls for that poll. The server
+supplies the counts, including after a vote acknowledgement. An explicit
+`BAD_REQUEST` lets a player select and submit again while the poll is open.
+An uncertain acknowledgement leaves voting locked for that poll. Closure
+disables voting and preserves the latest valid counts if the closing event
+omits or malforms its totals. A newly started poll resets the controls.
+
+`LobbyRoster` isolates the provisional Member 1 snapshot shape. The client
+currently reads `payload.players` as an array of objects with `playerName`.
+If the list is absent or malformed, the previous valid snapshot stays visible.
+The room header displays the local player's joined name independently of that
+list. Member 1 still needs to confirm the lobby payload and send the current
+poll definition to late joiners. Member 5's TLS host controls still need to be
+wired before hosts can drive poll events in production.
+
+Phase D can extend the session's joined-room event routing and mount the
+existing quiz FXML in the shell's `playerPages` container, using `joinedRoom()`
+for the confirmed room and player ID.
+Its `QuizClientPort` adapter can delegate to the same gameplay transport.
+
+### Launch and verification
+
+```powershell
+mvn clean javafx:run
+mvn clean test
+mvn "-Dquizarena.uiTests=true" clean test
+```
+
+Use the production launcher with a gameplay server that supports the shared
+protocol. The opt-in UI tests load the FXML in isolated JavaFX processes and
+cover networking failures, navigation, room and poll events, and stale
+callbacks. The loopback UI test sends real `JOIN_ROOM`, `SUBMIT_VOTE`, and
+`LEAVE_ROOM` frames through the Phase A client to a test-only peer. It uses the
+same socket through the whole flow. The production NIO entry point is still a
+placeholder in this checkout.
