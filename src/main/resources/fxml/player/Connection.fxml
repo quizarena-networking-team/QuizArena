@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.player.ConnectionController"
+      maxWidth="660" spacing="24">
+    <VBox spacing="7">
+        <Label text="Connect to a game" styleClass="page-title"/>
+        <Label text="Enter the server address provided by your host." styleClass="muted" wrapText="true"/>
+    </VBox>
+    <VBox spacing="22" styleClass="player-card">
+        <Label text="Gameplay server" styleClass="section-title"/>
+        <HBox alignment="TOP_LEFT" spacing="16">
+            <VBox spacing="8" HBox.hgrow="ALWAYS">
+                <Label text="Hostname or IP address" styleClass="field-label"/>
+                <TextField fx:id="serverHost" promptText="localhost or 192.168.1.10"
+                           accessibleText="Server hostname or IP address" onAction="#connect"/>
+            </VBox>
+            <VBox spacing="8" prefWidth="128" minWidth="110">
+                <Label text="TCP port" styleClass="field-label"/>
+                <TextField fx:id="serverPort" text="5000" accessibleText="Server TCP port" onAction="#connect"/>
+            </VBox>
+        </HBox>
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <Button fx:id="connectButton" text="Connect" onAction="#connect" styleClass="primary-button"/>
+            <ProgressIndicator fx:id="connectProgress" prefWidth="22" prefHeight="22" maxWidth="22" maxHeight="22"
+                               visible="false" managed="false" accessibleText="Connecting"/>
+        </HBox>
+        <Label fx:id="connectionMessage" wrapText="true" styleClass="feedback" visible="false" managed="false"/>
+    </VBox>
+</VBox>

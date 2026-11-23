@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.player.JoinRoomController"
+      maxWidth="660" spacing="24">
+    <VBox spacing="7">
+        <Label text="Join a room" styleClass="page-title"/>
+        <Label text="Use the room code shared by your host." styleClass="muted" wrapText="true"/>
+    </VBox>
+    <VBox spacing="20" styleClass="player-card">
+        <VBox spacing="8">
+            <Label text="Room code" styleClass="field-label"/>
+            <TextField fx:id="roomCode" promptText="ABC123" accessibleText="Room code" onAction="#join"/>
+        </VBox>
+        <VBox spacing="8">
+            <Label text="Display name" styleClass="field-label"/>
+            <TextField fx:id="playerName" promptText="Name shown to other players"
+                       accessibleText="Display name" onAction="#join"/>
+        </VBox>
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <Button fx:id="joinButton" text="Join room" onAction="#join" styleClass="primary-button"/>
+            <ProgressIndicator fx:id="joinProgress" prefWidth="22" prefHeight="22" maxWidth="22" maxHeight="22"
+                               visible="false" managed="false" accessibleText="Joining room"/>
+        </HBox>
+        <Label fx:id="joinMessage" wrapText="true" styleClass="feedback" visible="false" managed="false"/>
+    </VBox>
+</VBox>

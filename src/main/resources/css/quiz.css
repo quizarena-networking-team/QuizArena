@@ -1,0 +1,16 @@
+.quiz-screen { -fx-background-color: #101827; -fx-font-family: "Segoe UI"; -fx-font-size: 15px; }
+.quiz-header { -fx-padding: 24 32; }
+.quiz-title { -fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: white; }
+.quiz-scroll, .quiz-scroll > .viewport { -fx-background-color: #101827; }
+.quiz-content { -fx-padding: 8 32 32 32; }
+.quiz-card { -fx-padding: 24; -fx-background-color: #1e293b; -fx-background-radius: 12; }
+.question-text { -fx-font-size: 23px; -fx-font-weight: bold; -fx-text-fill: white; }
+.section-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white; }
+.muted { -fx-text-fill: #cbd5e1; }
+.countdown { -fx-text-fill: #6ee7b7; -fx-font-weight: bold; }
+.radio-button { -fx-text-fill: #f1f5f9; -fx-padding: 6 0; }
+.radio-button:disabled { -fx-opacity: 0.65; }
+.primary-button { -fx-background-color: #7c3aed; -fx-text-fill: white; -fx-padding: 12 24; -fx-background-radius: 8; }
+.buzzer-button { -fx-background-color: #be123c; -fx-text-fill: white; -fx-font-size: 23px; -fx-font-weight: bold; -fx-padding: 16 48; -fx-background-radius: 10; }
+.button:disabled { -fx-opacity: 0.55; }
+.button:focused, .radio-button:focused { -fx-effect: dropshadow(gaussian, #a78bfa, 5, 0.4, 0, 0); }

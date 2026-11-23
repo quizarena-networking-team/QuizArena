@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.quizarena.client.quiz.QuizScreenController"
+            prefWidth="1000" prefHeight="740" stylesheets="@../../css/quiz.css" styleClass="quiz-screen">
+    <top><VBox spacing="8" styleClass="quiz-header">
+        <Label text="QuizArena" styleClass="quiz-title"/>
+        <Label fx:id="connectionStatus" text="Waiting for a connection" styleClass="muted"/>
+    </VBox></top>
+    <center><ScrollPane fitToWidth="true" styleClass="quiz-scroll">
+        <content><VBox spacing="20" styleClass="quiz-content">
+            <fx:include fx:id="question" source="Question.fxml"/>
+            <fx:include fx:id="buzzer" source="Buzzer.fxml"/>
+            <fx:include fx:id="leaderboard" source="Leaderboard.fxml"/>
+        </VBox></content>
+    </ScrollPane></center>
+</BorderPane>
