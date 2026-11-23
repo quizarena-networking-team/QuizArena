@@ -365,3 +365,170 @@ and result persistence wiring. The initial lifecycle assumes one quiz per
 joined room session. Joining or reconnecting during an already running quiz
 requires the server to provide current state and participation rules. The
 player UI handles subsequent server events and still needs that team handoff.
+
+## Phase E — Final integration handoff
+
+The Member 2 client is ready for team integration. The Java 21 suites cover
+the client, poll service, and player flow using local fixtures and real
+loopback sockets. `ServerMain` in this checkout is a placeholder. The full
+LAN flow, host TLS commands, and live MySQL persistence need the team services.
+
+### Member 1 — Gameplay NIO server
+
+- Listen on a configurable gameplay TCP address and port. The player defaults
+  to port `5000`. Encode each frame as one UTF-8 JSON object plus `\n`. The
+  frame limit is 16 KiB in bytes before the delimiter. Accumulate partial
+  reads and queue partial writes per connection.
+- Echo the original `requestId` in direct replies and set `status` to `OK`
+  or `ERROR`. Use a shared `errorCode` on failure. Room pushes carry the
+  canonical `roomCode` and omit `status`. Preserve the enqueue order of
+  pushes to a connection. Reply and event callbacks can reach the UI in
+  either order, so the client subscribes before sending `JOIN_ROOM` and holds
+  early events until the join is confirmed.
+- Bind the joined `playerId` and room to the connection. Route `SUBMIT_VOTE`
+  to the room's `PollRequestHandler` on the gameplay worker path. Provide
+  `RequestContext.playerId()` from that trusted session and use the existing
+  `PlayerDirectory` for membership. Use `GameEventSink` to enqueue room
+  broadcasts without socket writes or blocking I/O under the poll lock.
+  Host commands are handled on the authenticated TLS path.
+- On accepted `LEAVE_ROOM`, remove session membership and reply with
+  `LEAVE_ROOM_RESULT`. On room shutdown call `PollService.close()`, close the
+  quiz service, and send `ROOM_CLOSED` for that room before removing the
+  outbound path. Once a player leaves, stop queuing events for that former
+  membership.
+
+| Message | Player-side contract |
+|---|---|
+| `JOIN_ROOM` / `JOIN_ROOM_RESULT` | The request sends `roomCode` and `payload.playerName`. `OK` includes the assigned `payload.playerId` and should include the canonical `roomCode`. |
+| `LOBBY_UPDATED` | The provisional `LobbyRoster` adapter reads `payload.players` as an array of objects with `playerName`. Confirm the authoritative roster shape with Member 1. |
+| `SUBMIT_VOTE` / `SUBMIT_VOTE_RESULT` | The request sends `pollId` and `optionId`. The proposed `OK` payload echoes both and sets `accepted: true`. |
+| `POLL_STARTED` | The Phase B proposal sends `pollId`, `question`, an `options` object from IDs to labels, and a `counts` object from the same IDs to integer counts. |
+| `POLL_RESULTS` / `POLL_CLOSED` | Send `pollId` and the full `counts` snapshot, including zeros. Public events contain aggregate totals. |
+| `ROOM_CLOSED` | The push identifies the affected room through the envelope `roomCode`. The player leaves the room view and clears all quiz and poll state. |
+
+Use a fresh request ID for each request on a socket. Closing or reconnecting
+interrupts a retired TCP event worker and discards its queued callbacks. A
+request future may reach the UI before the corresponding loss notification.
+Join, leave, and vote callbacks recheck both the session and transport state
+before displaying a result.
+
+### Member 3 — Quiz client integration
+
+`JoinedQuizView` mounts the existing `QuizScreen.fxml` after join. Its
+`QuizTransportAdapter` implements `QuizClientPort` on the same gameplay
+transport and receives ordered room events through the single room
+subscription. The shell hands events to JavaFX with `Platform.runLater`.
+Navigating between quiz, lobby, and poll retains the current view and
+subscription. Leaving the room removes the listener and closes the quiz
+controller and timers. Rejoining binds a new view to the newly assigned ID.
+At the minimum player window size, the shell brings the buzzer into view and
+fits the final leaderboard columns within the available width.
+
+| Message | Fields needed for the existing game flow |
+|---|---|
+| `QUESTION_STARTED` / `BUZZER_OPENED` | `questionId`, `roundId`, `text`, options `A`–`D`, and `deadlineEpochMs`. Member 3's proposal also sends `mode`. |
+| `BUZZER_WINNER` | `questionId`, `roundId`, winning `playerId`, and the new answer `deadlineEpochMs`. |
+| `QUESTION_ENDED` | `questionId`, `roundId`, `correctOptionId`, and the proposed end `reason`. Publish the correction after the round. |
+| `SUBMIT_ANSWER` / `PRESS_BUZZER` | Keep `questionId` and `roundId` in the request. Answers also send `optionId`. Successful replies echo both IDs and include `accepted: true` or `winner: true`, respectively. |
+| `LEADERBOARD_UPDATED` / `LEADERBOARD_RESULT` | `entries` with `playerId`, `playerName`, numeric integer `score`, and Member 3's proposed integer `rank`. Only pushes update the current screen. |
+| `QUIZ_FINISHED` | `quizId`, `persisted: true`, and final `entries` after persistence succeeds. The final standings remain accessible while the room session remains open. |
+
+The shared protocol describes the envelope and message names. The team still
+needs to confirm the full poll acknowledgement and event shapes, the lobby
+roster shape, and Member 3's `roundId`, `rank`, and final-persistence fields.
+The shared leaderboard example currently omits `rank`. The player uses the
+Member 3 proposal, including that field. `deadlineEpochMs` is Unix milliseconds
+on the server. A UI countdown is indicative, and the server decides validity.
+
+The quiz adapter checks a reply's type and room against the request. For
+successful answer and buzzer replies it also verifies the confirmation flag
+and question and round IDs. A mismatched response is an unconfirmed action in
+the quiz UI. Explicit server rejection codes still reach the existing controller.
+
+### Member 5 — TLS, room mode, and persistence
+
+Authenticate the host via TLS on the configured host-control listener
+(default `8443`), then check permission for the requested room. Call
+`PollService.startPoll(question, options)` and `closePoll(pollId)` as trusted
+server operations. Return `START_POLL_RESULT` or `CLOSE_POLL_RESULT` with the
+original host request ID. Map expected `PollException.code()` values to
+shared errors. The guest TCP client has no host credentials or ownership
+context, so authorizing host commands belongs to the TLS service.
+
+Serialize poll and quiz start checks through the same room coordinator, with
+a reservation while quiz start is asynchronous. The proposed first-release
+policy allows polling in the lobby or after quiz completion. `currentPoll()`
+exposes open and closed poll state. Polls are in memory. MySQL is required for
+production quiz content and final quiz results, including the data source and
+schema used by Member 3's JDBC adapters. Emit saved final results only after
+the server confirms persistence.
+
+### Run, verify, and troubleshoot
+
+```powershell
+mvn clean javafx:run
+mvn clean test
+mvn "-Dquizarena.uiTests=true" clean test
+```
+
+Use JDK 21 and Maven 3.9+. For the complete flow, enter the listening game
+server's hostname and actual TCP port and join a room created by the host.
+Run the JavaFX suite in a desktop session or under the CI virtual display.
+The optional MySQL test requires the test database supplied by Member 5.
+
+| Final Java 21 command | Result |
+|---|---|
+| `mvn clean test` | 85 passed, 0 failed, 14 skipped |
+| `mvn "-Dquizarena.uiTests=true" clean test` | 98 passed, 0 failed, 1 skipped |
+| `mvn clean javafx:run` | The desktop window opened and Maven exited cleanly after it was closed. |
+
+The standard run skipped 13 opt-in UI tests. Both runs skipped the optional
+live MySQL test. The UI-enabled run includes the new vote-loss race and compact
+quiz regressions. Rendered checks at 1000×690 and 704×501 confirmed the quiz
+views keep the buzzer and final results readable at the smaller size.
+
+| Symptom | Check |
+|---|---|
+| Connection refused or timed out | Verify the NIO listener is running at the selected address and port. This checkout provides a placeholder entry point. |
+| Joined with no roster | Check the `LOBBY_UPDATED` room code and the provisional `players` array. |
+| Poll options or totals are missing | Check the `POLL_STARTED` definition, then match the `pollId` and option IDs across result messages. Late join needs the current poll definition from the server. |
+| Quiz view or leaderboard is missing | Inspect the room code, required round fields, and leaderboard `rank` values. Join before quiz start until the team implements current-round recovery. |
+| Vote or answer delivery is unconfirmed | Wait for server events. A request timeout or disconnect can occur after the server processed the action. |
+
+### Two-minute viva
+
+Pre-run the focused loopback tests so Maven dependencies are ready. When the
+team server is available, use the player window to show the same flow live.
+
+```powershell
+mvn "-Dtest=TcpQuizClientTest,PollSocketTest" test
+mvn "-Dquizarena.uiTests=true" "-Dtest=PlayerScreenTest#quizAndPollingShareOneGameplaySocket" test
+```
+
+1. **0:00–0:25** Show the connection screen and explain the Java `Socket`,
+   host, port, and the reuse of one connection for the joined session.
+2. **0:25–0:55** Show `JsonFrameReader` and the framing tests. Explain how the
+   `InputStream` assembles split UTF-8 frames, why the byte limit is enforced
+   before parsing, and how the writer sends a complete frame to the
+   `OutputStream`.
+3. **0:55–1:25** Show the reversed-reply and disconnect tests. Explain how a
+   request ID completes the right future, how pushes preserve order, and how
+   timeouts and reconnects retire old work while JavaFX stays responsive.
+4. **1:25–2:00** Show the concurrent poll test and the single-socket player
+   flow. Explain the atomic one-vote-per-player check, server-owned totals,
+   and how lobby, quiz, buzzer, and results are delivered to JavaFX.
+
+### Readiness checklist
+
+- [x] Verify Java 21 TCP framing, bounded queues, request correlation, event
+  delivery, timeouts, disconnect, and reconnect with loopback peers.
+- [x] Verify poll state, identity checks, concurrent duplicate detection, and
+  final aggregate counts in local service and loopback tests.
+- [x] Verify the JavaFX launcher and the player flow with test fixtures,
+  including quiz, poll, leave, and reconnect.
+- [ ] Validate the production NIO listener, session registry, roster and
+  broadcast contracts, and late-join/reconnect snapshots with Member 1.
+- [ ] Confirm the poll and quiz payload proposals and phase coordination with
+  Members 1, 3, and 5.
+- [ ] Verify host-authorized TLS operations and live MySQL quiz persistence
+  with Member 5 using the team's server setup.
