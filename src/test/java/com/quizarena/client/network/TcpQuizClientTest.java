@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.quizarena.protocol.MessageTypes.*;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -241,6 +242,59 @@ class TcpQuizClientTest {
             var next = client.request(ping("pending-one")); // IDs are scoped to a connection.
             replacement.send(pong(replacement.receive().requestId()));
             assertEquals(pong("pending-one"), await(next));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void stopsTheRetiredEventWorkerWhenClosingOrReconnecting(boolean reconnect) throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var interrupted = new CountDownLatch(1);
+        var worker = new AtomicReference<Thread>();
+        var otherEvents = new LinkedBlockingQueue<ProtocolMessage>();
+        var losses = new LinkedBlockingQueue<IOException>();
+        var blocking = event(LOBBY_UPDATED, "Hold the old worker");
+        try (var client = new TcpQuizClient(); var server = new LoopbackServer(); var replacement = new LoopbackServer();
+             var subscription = client.subscribe(message -> {
+                 if (!blocking.equals(message)) {
+                     otherEvents.add(message);
+                     return;
+                 }
+                 worker.set(Thread.currentThread());
+                 entered.countDown();
+                 try {
+                     release.await();
+                 } catch (InterruptedException expected) {
+                     interrupted.countDown();
+                 }
+             }); var loss = client.onConnectionLost(losses::add)) {
+            try {
+                server.connect(client);
+                server.send(blocking);
+                awaitLatch(entered);
+                server.send(event(ROOM_CLOSED, "Old queued event"));
+                var pending = client.request(ping("old-request"));
+                server.receive();
+                server.peer.close();
+                assertInstanceOf(EOFException.class, failureOf(pending));
+
+                if (reconnect) {
+                    replacement.connect(client);
+                    var fresh = event(LOBBY_UPDATED, "New connection");
+                    replacement.send(fresh);
+                    assertEquals(fresh, take(otherEvents));
+                } else {
+                    client.close();
+                }
+                awaitLatch(interrupted);
+                worker.get().join(5_000);
+                assertFalse(worker.get().isAlive(), "The retired event worker should terminate");
+                assertTrue(otherEvents.isEmpty());
+                assertTrue(losses.isEmpty());
+            } finally {
+                release.countDown();
+            }
         }
     }
 

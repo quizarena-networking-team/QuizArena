@@ -14,6 +14,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.layout.BorderPane;
 
 import java.io.BufferedReader;
+import java.io.EOFException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
@@ -169,7 +170,8 @@ final class QuizUiScenarios {
             transport.latest().respond(JOIN_ROOM_RESULT, "OK", null, Map.of("playerId", "new-player"));
             onFx(() -> ui.assertPage("lobbyView"));
             oldRoomEvents.accept(question(QUESTION_STARTED, "qOld", "old-connection", "Stale question"));
-            pendingAnswer.respond(SUBMIT_ANSWER_RESULT, "OK", null, Map.of("accepted", true));
+            pendingAnswer.respond(SUBMIT_ANSWER_RESULT, "OK", null,
+                    Map.of("accepted", true, "questionId", "q1", "roundId", "early"));
             onFx(() -> {
                 ui.assertPage("lobbyView");
                 assertEquals("new-player", ui.session().joinedRoom().orElseThrow().playerId());
@@ -200,6 +202,121 @@ final class QuizUiScenarios {
             });
         }
         assertEquals(2, transport.lossRemovals);
+    }
+
+    static void replyLossRace() throws Exception {
+        var transport = new FakeTransport();
+        try (var ui = Ui.open(transport)) {
+            connect(ui, transport);
+            onFx(() -> ui.startJoin(ROOM, "Player"));
+            // The reader detects EOF while the accepted reply is already on its way to JavaFX.
+            transport.connected = false;
+            transport.latest().respond(JOIN_ROOM_RESULT, "OK", null, Map.of("playerId", "already-gone"));
+            onFx(() -> {
+                ui.assertPage("connectionView");
+                assertEquals("Connection lost", ui.text("connectionStatus"));
+                assertTrue(ui.session().joinedRoom().isEmpty());
+                assertEquals(1, transport.eventRemovals);
+            });
+
+            connect(ui, transport);
+            onFx(() -> ui.startJoin(ROOM, "Player"));
+            transport.latest().respond(JOIN_ROOM_RESULT, "OK", null, Map.of("playerId", "first-poll-player"));
+            onFx(() -> ui.assertPage("lobbyView"));
+            transport.emit(pollStarted("active", "Vote before the next quiz"));
+            onFx(() -> ui.submit("A"));
+            var outstandingVote = transport.latest();
+            assertEquals(SUBMIT_VOTE, outstandingVote.request().type());
+            int requestsBeforeNavigation = transport.requests.size();
+
+            transport.emit(question(QUESTION_STARTED, "q1", "round-1", "Quiz starts during navigation"));
+            awaitQuiz(ui, "Quiz starts during navigation");
+            onFx(() -> {
+                for (int i = 0; i < 2; i++) {
+                    ui.click("quizLobbyButton");
+                    ui.click("openPollButton");
+                    assertEquals("Submitting…", ui.button("submitVoteButton").getText());
+                    assertTrue(ui.button("submitVoteButton").isDisabled());
+                    ui.click("submitVoteButton");
+                    ui.click("backToLobbyButton");
+                    ui.click("openQuizButton");
+                    assertEquals("Quiz starts during navigation", ((Label) quizNode(ui, "questionText")).getText());
+                }
+                ui.click("quizLobbyButton");
+                ui.click("openPollButton");
+            });
+            assertEquals(requestsBeforeNavigation, transport.requests.size());
+            var queuedLoss = transport.lossListener;
+            var oldRoomEvents = transport.eventListener;
+            transport.connected = false;
+            outstandingVote.response().completeExceptionally(new EOFException("Peer closed during the vote"));
+            onFx(() -> {
+                ui.assertPage("connectionView");
+                assertEquals("Connection lost", ui.text("connectionStatus"));
+                assertTrue(ui.session().joinedRoom().isEmpty());
+                assertEquals(2, transport.eventRemovals);
+            });
+
+            connect(ui, transport);
+            onFx(() -> ui.startJoin(ROOM, "Player"));
+            transport.latest().respond(JOIN_ROOM_RESULT, "OK", null, Map.of("playerId", "rejoined-player"));
+            onFx(() -> ui.assertPage("lobbyView"));
+            queuedLoss.accept(new EOFException("Old teardown"));
+            oldRoomEvents.accept(counts(POLL_CLOSED, "active", 1, 0));
+            transport.emit(pollStarted("fresh", "New room session vote"));
+            onFx(() -> {
+                ui.assertPage("pollView");
+                assertEquals("New room session vote", ui.text("pollQuestion"));
+                assertEquals("Voting open", ui.text("pollPhase"));
+                assertEquals("rejoined-player", ui.session().joinedRoom().orElseThrow().playerId());
+                assertFalse(ui.option("A").isDisabled());
+            });
+        }
+        assertEquals(3, transport.eventRemovals);
+        assertEquals(3, transport.lossRemovals);
+    }
+
+    static void compactQuiz() throws Exception {
+        var transport = new FakeTransport();
+        try (var ui = Ui.open(transport)) {
+            connect(ui, transport);
+            onFx(() -> ui.startJoin(ROOM, "Quiz player"));
+            transport.latest().respond(JOIN_ROOM_RESULT, "OK", null, Map.of("playerId", "assigned-p7"));
+            transport.emit(question(QUESTION_STARTED, "q1", "regular", "A regular question"));
+            awaitQuiz(ui, "A regular question");
+            onFx(() -> {
+                ui.root().applyCss();
+                ui.root().layout();
+                ui.root().resize(704, 501);
+            });
+            transport.emit(question(BUZZER_OPENED, "q2", "buzzer", "Resize to the minimum player window"));
+            awaitQuiz(ui, "Resize to the minimum player window");
+            onFx(() -> assertInQuizViewport(ui, "buzz"));
+
+            transport.emit(event(QUIZ_FINISHED, Map.of("quizId", "quiz-1", "persisted", true, "entries", entries(150))));
+            awaitValue(() -> ((Label) quizNode(ui, "heading")).textProperty(), "Final results — saved"::equals);
+            onFx(() -> {
+                assertInQuizViewport(ui, "heading");
+                var table = (TableView<?>) quizNode(ui, "leaderboardTable");
+                double columns = table.getVisibleLeafColumns().stream().mapToDouble(column -> column.getWidth()).sum();
+                assertTrue(columns <= table.getWidth() + 1, "All columns should fit the compact leaderboard");
+                assertFinalQuiz(ui);
+                assertFalse(ui.node("quizInputStatus").isVisible());
+            });
+        }
+    }
+
+    private static void assertInQuizViewport(Ui ui, String id) {
+        ui.root().applyCss();
+        ui.root().layout();
+        var scroll = quizScroll(ui.node("joinedQuizView"));
+        Node viewport = scroll.lookup(".viewport");
+        assertNotNull(viewport);
+        var bounds = viewport.localToScene(viewport.getBoundsInLocal());
+        Node target = quizNode(ui, id);
+        var targetBounds = target.localToScene(target.getBoundsInLocal());
+        assertTrue(targetBounds.getMinY() >= bounds.getMinY() - 1 && targetBounds.getMaxY() <= bounds.getMaxY() + 1,
+                () -> id + " should be fully visible in " + bounds + " but was " + targetBounds);
     }
 
     private static void assertFinalQuiz(Ui ui) {
@@ -250,10 +367,13 @@ final class QuizUiScenarios {
     }
 
     private static Node quizNode(Node view, String id) {
-        var scroll = (ScrollPane) ((BorderPane) view).getCenter();
-        Node node = scroll.getContent().lookup("#" + id);
+        Node node = quizScroll(view).getContent().lookup("#" + id);
         assertNotNull(node, "Missing quiz node " + id);
         return node;
+    }
+
+    private static ScrollPane quizScroll(Node view) {
+        return (ScrollPane) ((BorderPane) view).getCenter();
     }
 
     private static Label questionStatus(Ui ui) {
