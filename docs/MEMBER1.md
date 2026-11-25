@@ -26,3 +26,33 @@ Concept: non-blocking multiplexing (`ServerSocketChannel`, `Selector`, `SocketCh
 
 ## Config (env or args)
 `QUIZ_BIND_HOST`, `QUIZ_TCP_PORT`, `QUIZ_MAX_CONNECTIONS`, `QUIZ_MAX_PLAYERS`, `QUIZ_IDLE_TIMEOUT_SECONDS`, `QUIZ_DEV_ROOM`, `QUIZ_LOG_IO`.
+
+## Integration Handoff - Pending Team Integration
+
+The Java NIO gameplay server provides the shared TCP infrastructure,
+client session management, message dispatching, and room management.
+
+The following handler integrations must be coordinated during
+the team integration phase:
+
+- **Member 2 - Polling:** Register the polling request handler
+  using `dispatcher.register(pollHandler.supportedTypes(), pollHandler)`
+  in `ServerMain.assemble`. Connect the PollService to the shared
+  room event sink.
+
+- **Member 3 - Multiplayer Quiz:** Register the
+  `QuizRequestHandler` using its supported message types in
+  `ServerMain.assemble`. Ensure that quiz operations use the
+  shared room and player management interfaces.
+
+- **Cross-module coordination:** Members 1, 2, and 3 must verify
+  handler registration, message types, request/response formats,
+  and shared event delivery.
+
+- **Integration testing:** Verify that polling and quiz requests
+  are correctly dispatched through the NIO server and that
+  responses and room events reach the connected clients.
+
+These activities are part of the team integration phase and
+must be verified before the complete networking system is
+considered integrated.
