@@ -173,7 +173,9 @@ public final class ClientSession {
             }
             draining = true;
         }
-        try {        } catch (RejectedExecutionException shuttingDown) {
+        try {
+            pool.execute(this::drainInbox);
+        } catch (RejectedExecutionException shuttingDown) {
             synchronized (inbox) {
                 draining = false;
                 inbox.clear();
