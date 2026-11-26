@@ -2,8 +2,12 @@ package com.quizarena.server;
 
 import com.quizarena.metrics.NetworkEvent;
 import com.quizarena.metrics.NetworkEventBus;
+import com.quizarena.server.inspector.NetworkInspectorWindow;
+import com.quizarena.udp.LanServices;
+import com.quizarena.udp.UdpConfig;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -19,11 +23,14 @@ import java.util.concurrent.CountDownLatch;
  *   Member 2:  dispatcher.register(pollHandler.supportedTypes(), pollHandler);   // SUBMIT_VOTE
  *   Member 3:  dispatcher.register(quizHandler.supportedTypes(), quizHandler);   // SUBMIT_ANSWER, PRESS_BUZZER, GET_LEADERBOARD
  *   Member 5:  start the TLS host server and call rooms.createRoom()/closeRoom() from HostCommandCoordinator
- *   Member 4:  subscribe to services.events() for the network inspector, start UDP/multicast services
+ *   Member 4:  LanServices (UDP discovery, heartbeat, multicast) is started in main(); when a room's
+ *              Poll/Quiz services are created, pass lan.wrap(rooms.eventSink(code)) as their
+ *              GameEventSink so game phases are also announced over multicast
  * </pre>
  *
  * Run: {@code QUIZ_DEV_ROOM=DEMO01 java ...ServerMain} (or {@code --dev-room=DEMO01 --port=5000})
  * to pre-create a room so clients can join before the TLS host service exists.
+ * Add {@code --inspector} to open the host-only network inspector window.
  */
 public final class ServerMain {
 
@@ -65,7 +72,10 @@ public final class ServerMain {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        ServerConfig config = applyArguments(ServerConfig.fromEnv(System.getenv()), args);
+        boolean inspector = Arrays.asList(args).contains("--inspector");
+        String[] settings = Arrays.stream(args).filter(arg -> !arg.equals("--inspector")).toArray(String[]::new);
+        ServerConfig config = applyArguments(ServerConfig.fromEnv(System.getenv()), settings);
+        UdpConfig udp = UdpConfig.fromEnv(System.getenv());
 
         System.out.println("============================");
         System.out.println("    QuizArena Server");
@@ -73,7 +83,8 @@ public final class ServerMain {
 
         Services services = assemble(config);
         services.events().subscribe(event -> {
-            boolean chatter = event.kind() == NetworkEvent.Kind.READ || event.kind() == NetworkEvent.Kind.WRITE;
+            boolean chatter = event.kind() == NetworkEvent.Kind.READ || event.kind() == NetworkEvent.Kind.WRITE
+                    || (event.kind() == NetworkEvent.Kind.UDP_RECEIVED && String.valueOf(event.detail()).startsWith("HEARTBEAT"));
             if (!chatter || config.logIo()) {
                 System.out.println(event);
             }
@@ -87,10 +98,22 @@ public final class ServerMain {
             System.out.println("Development room created: " + code
                     + "  (players can JOIN_ROOM with this code; TLS host control is not available yet)");
         }
+
+        // Member 4: supplementary UDP services. Failures are reported as events; TCP keeps running.
+        LanServices lan = LanServices.start(udp, services.server().boundPort(), services.rooms(), services.events());
+        System.out.printf("UDP discovery %s, heartbeat %s, multicast %s%n",
+                lan.discoveryPort() > 0 ? "on port " + lan.discoveryPort() : "unavailable",
+                lan.heartbeatPort() > 0 ? "on port " + lan.heartbeatPort() : "unavailable",
+                lan.multicastAvailable() ? "to " + udp.multicastGroup() + ":" + udp.multicastPort() : "unavailable");
+        if (inspector) {
+            NetworkInspectorWindow.open(services.events(), lan.multicastAvailable() ? lan::announce : null,
+                    config.devRoomCode());
+        }
         System.out.println("Press Ctrl+C to stop.");
 
         CountDownLatch stopped = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            lan.close();
             services.close();
             stopped.countDown();
         }, "quiz-shutdown"));
