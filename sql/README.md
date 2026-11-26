@@ -32,6 +32,28 @@ Expected tables:
 - `quiz_sessions`
 - `quiz_results`
 
+## Application connection settings
+
+QuizArena reads database credentials from the server process environment. Keep
+these values in a local terminal or IDE run configuration, never in a tracked
+file:
+
+```bash
+export QUIZ_DB_URL='jdbc:mysql://localhost:3306/quizarena'
+export QUIZ_DB_USER='quizarena_app'
+export QUIZ_DB_PASSWORD='your-private-local-password'
+```
+
+Optional timeout settings use whole seconds:
+
+```bash
+export QUIZ_DB_CONNECT_TIMEOUT_SECONDS='5'
+export QUIZ_DB_SOCKET_TIMEOUT_SECONDS='10'
+```
+
+Credentials must be supplied separately; embedding a user or password in the
+JDBC URL is rejected. The application never prints the configured password.
+
 ## Test database
 
 Use a separate disposable database for the opt-in JDBC integration test:
