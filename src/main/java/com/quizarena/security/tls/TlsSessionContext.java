@@ -15,4 +15,3 @@ public interface TlsSessionContext {
     SocketAddress remoteAddress();
     String protocol();
 }
-

@@ -118,4 +118,3 @@ public final class TlsHostCommandHandler implements TlsRequestHandler {
         return new ProtocolMessage(type, requestId, roomCode, "ERROR", code, Map.of("message", message));
     }
 }
-

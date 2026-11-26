@@ -7,4 +7,3 @@ import com.quizarena.security.AuthenticatedHost;
 public interface AuthenticatedTlsCommandHandler {
     void handle(ProtocolMessage request, TlsSessionContext session, AuthenticatedHost host) throws Exception;
 }
-

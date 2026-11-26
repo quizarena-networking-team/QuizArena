@@ -77,4 +77,3 @@ public final class PasswordHasher {
         @Override public byte[] hash() { return Arrays.copyOf(hash, hash.length); }
     }
 }
-

@@ -95,4 +95,3 @@ public record DatabaseConfig(
         return slash < 0 ? jdbcUrl.substring(start) : jdbcUrl.substring(start, slash);
     }
 }
-

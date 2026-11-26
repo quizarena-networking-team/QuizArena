@@ -93,4 +93,3 @@ class TlsHostCommandHandlerTest {
         ProtocolMessage last() { return sent.getLast(); }
     }
 }
-

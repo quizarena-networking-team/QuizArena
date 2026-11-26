@@ -64,4 +64,3 @@ public final class TlsHostSession implements TlsSessionContext, AutoCloseable {
         try { socket.close(); } catch (IOException ignored) { }
     }
 }
-

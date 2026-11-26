@@ -54,4 +54,3 @@ class HostAuthenticatorTest {
         return new HostAccount(7, "host-owner", record.salt(), record.hash(), record.iterations());
     }
 }
-

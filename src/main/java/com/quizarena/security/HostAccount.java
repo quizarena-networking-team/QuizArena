@@ -30,4 +30,3 @@ public record HostAccount(long id, String username, byte[] passwordSalt,
         return Arrays.copyOf(passwordHash, passwordHash.length);
     }
 }
-

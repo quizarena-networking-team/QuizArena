@@ -7,4 +7,3 @@ import java.util.Optional;
 public interface HostRepository {
     Optional<HostAccount> findByUsername(String username) throws SQLException;
 }
-

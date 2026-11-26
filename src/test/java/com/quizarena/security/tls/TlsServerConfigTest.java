@@ -65,4 +65,3 @@ class TlsServerConfigTest {
                 "QUIZ_TLS_KEYSTORE_PASSWORD", "store-secret"));
     }
 }
-

@@ -48,4 +48,3 @@ class PasswordHasherTest {
         assertThrows(IllegalArgumentException.class, () -> hasher.hash(new char[257]));
     }
 }
-

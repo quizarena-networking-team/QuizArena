@@ -77,4 +77,3 @@ class DatabaseConfigTest {
                 "QUIZ_DB_PASSWORD", "secret-value"));
     }
 }
-

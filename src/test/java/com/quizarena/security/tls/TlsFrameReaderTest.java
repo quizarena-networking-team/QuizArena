@@ -39,4 +39,3 @@ class TlsFrameReaderTest {
         return new String(value, StandardCharsets.UTF_8);
     }
 }
-

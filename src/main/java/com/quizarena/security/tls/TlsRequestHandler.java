@@ -6,4 +6,3 @@ import com.quizarena.protocol.ProtocolMessage;
 public interface TlsRequestHandler {
     void handle(ProtocolMessage request, TlsSessionContext session) throws Exception;
 }
-

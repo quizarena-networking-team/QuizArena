@@ -8,4 +8,3 @@ public record AuthenticatedHost(long id, String username) {
         }
     }
 }
-

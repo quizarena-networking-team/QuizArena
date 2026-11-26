@@ -130,4 +130,3 @@ export QUIZ_M3_TEST_DB_USER='quizarena_app'
 export QUIZ_M3_TEST_DB_PASSWORD='your-private-local-password'
 mvn -Dtest=JdbcMySqlTest test
 ```
-

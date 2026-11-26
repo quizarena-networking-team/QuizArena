@@ -108,4 +108,3 @@ public final class TlsHostServer implements AutoCloseable {
         try { listener.close(); } catch (IOException ignored) { }
     }
 }
-

@@ -150,4 +150,3 @@ class HostCommandCoordinatorTest {
         ProtocolMessage last() { return sent.getLast(); }
     }
 }
-

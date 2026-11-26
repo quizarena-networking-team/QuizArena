@@ -6,4 +6,3 @@ import java.sql.SQLException;
 public interface QuizSessionStore {
     long create(long hostId, String roomCode) throws SQLException;
 }
-
