@@ -75,11 +75,17 @@ The host-control listener requires a PKCS#12 keystore and never reads private-ke
 passwords from source files:
 
 ```bash
+export QUIZ_TLS_ENABLED='true'
 export QUIZ_TLS_BIND_HOST='0.0.0.0'
 export QUIZ_TLS_PORT='8443'
 export QUIZ_TLS_KEYSTORE_PATH='/absolute/private/path/quizarena-server.p12'
 export QUIZ_TLS_KEYSTORE_PASSWORD='your-private-keystore-password'
 ```
+
+Secure host control is opt-in. When `QUIZ_TLS_ENABLED` is absent or `false`, the
+gameplay server still starts but does not open the TLS host port. When enabled,
+startup validates the MySQL connection and TLS key material before accepting
+host connections.
 
 `QUIZ_TLS_KEY_PASSWORD` is optional when the key and keystore use the same
 password. Optional limits are `QUIZ_TLS_MAX_CONNECTIONS` (default `32`) and

@@ -1,6 +1,7 @@
 package com.quizarena.security;
 
 import com.quizarena.protocol.ProtocolMessage;
+import com.quizarena.protocol.RequestContext;
 import com.quizarena.security.tls.TlsSessionContext;
 import com.quizarena.server.RoomRegistry;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -83,6 +85,20 @@ class HostCommandCoordinatorTest {
         }
     }
 
+    @Test
+    void gameplayBridgeRejectsRequestsWithoutAnActiveHostRoom() {
+        var rooms = new RoomRegistry(32, 1);
+        try (var coordinator = coordinator(rooms, (hostId, roomCode) -> 1)) {
+            var context = new FakePlayerContext("MISSING");
+            coordinator.gameplayHandler().handle(
+                    request(SUBMIT_VOTE, "p1", "MISSING", Map.of("pollId", "p", "optionId", "A")),
+                    context);
+            assertError(context.last(), SUBMIT_VOTE_RESULT, "p1", "ROOM_NOT_FOUND");
+            assertEquals(Set.of(SUBMIT_VOTE, SUBMIT_ANSWER, PRESS_BUZZER, GET_LEADERBOARD),
+                    coordinator.gameplayTypes());
+        }
+    }
+
     private static HostCommandCoordinator coordinator(RoomRegistry rooms, QuizSessionStore sessions) {
         return new HostCommandCoordinator(rooms, sessions,
                 quizId -> { throw new SQLException("quiz loading not expected"); },
@@ -118,6 +134,19 @@ class HostCommandCoordinatorTest {
         @Override public boolean authenticate(AuthenticatedHost value) { return false; }
         @Override public SocketAddress remoteAddress() { return new InetSocketAddress("127.0.0.1", 1); }
         @Override public String protocol() { return "TLSv1.3"; }
+        ProtocolMessage last() { return sent.getLast(); }
+    }
+
+    private static final class FakePlayerContext implements RequestContext {
+        private final String roomCode;
+        private final List<ProtocolMessage> sent = new ArrayList<>();
+        FakePlayerContext(String roomCode) { this.roomCode = roomCode; }
+        @Override public String connectionId() { return "player-connection"; }
+        @Override public String playerId() { return "player-1"; }
+        @Override public String roomCode() { return roomCode; }
+        @Override public void reply(ProtocolMessage response) { sent.add(response); }
+        @Override public void sendToPlayer(String playerId, ProtocolMessage event) { }
+        @Override public void broadcastToRoom(String roomCode, ProtocolMessage event) { }
         ProtocolMessage last() { return sent.getLast(); }
     }
 }

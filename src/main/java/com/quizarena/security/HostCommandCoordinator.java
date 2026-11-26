@@ -3,9 +3,13 @@ package com.quizarena.security;
 import com.quizarena.db.QuizDao;
 import com.quizarena.db.ResultDao;
 import com.quizarena.poll.PollException;
+import com.quizarena.poll.PollRequestHandler;
 import com.quizarena.poll.PollService;
+import com.quizarena.protocol.MessageHandler;
 import com.quizarena.protocol.ProtocolMessage;
+import com.quizarena.protocol.RequestContext;
 import com.quizarena.quiz.QuizException;
+import com.quizarena.quiz.QuizRequestHandler;
 import com.quizarena.quiz.QuizService;
 import com.quizarena.quiz.QuizState;
 import com.quizarena.security.tls.AuthenticatedTlsCommandHandler;
@@ -20,6 +24,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 
 import static com.quizarena.protocol.MessageTypes.*;
@@ -64,6 +69,37 @@ public final class HostCommandCoordinator implements AuthenticatedTlsCommandHand
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.quizzes = Objects.requireNonNull(quizzes, "quizzes");
         this.results = Objects.requireNonNull(results, "results");
+    }
+
+    /**
+     * Routes player requests to the same room-scoped services controlled by the TLS host channel.
+     * Register this single handler on the gameplay dispatcher after constructing the coordinator.
+     */
+    public MessageHandler gameplayHandler() {
+        return new MessageHandler() {
+            @Override public void handle(ProtocolMessage request, RequestContext context) {
+                HostRoom room;
+                synchronized (lock) {
+                    ensureOpen();
+                    String code = context.roomCode();
+                    room = code == null ? null : activeRooms.get(code);
+                }
+                if (room == null) {
+                    context.reply(new ProtocolMessage(gameplayResponseType(request.type()), request.requestId(),
+                            request.roomCode(), "ERROR", "ROOM_NOT_FOUND", Map.of()));
+                    return;
+                }
+                if (SUBMIT_VOTE.equals(request.type())) {
+                    new PollRequestHandler(room.polls).handle(request, context);
+                } else {
+                    new QuizRequestHandler(room.quiz).handle(request, context);
+                }
+            }
+        };
+    }
+
+    public Set<String> gameplayTypes() {
+        return Set.of(SUBMIT_VOTE, SUBMIT_ANSWER, PRESS_BUZZER, GET_LEADERBOARD);
     }
 
     @Override
@@ -253,6 +289,10 @@ public final class HostCommandCoordinator implements AuthenticatedTlsCommandHand
             case FINISH_QUIZ -> FINISH_QUIZ_RESULT;
             default -> type;
         };
+    }
+
+    private static String gameplayResponseType(String type) {
+        return GET_LEADERBOARD.equals(type) ? LEADERBOARD_RESULT : type + "_RESULT";
     }
 
     private static String text(Map<String, Object> payload, String name) {
