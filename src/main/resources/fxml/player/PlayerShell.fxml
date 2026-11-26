@@ -12,6 +12,8 @@
                     visible="false" managed="false"/>
             <Label fx:id="quizInputStatus" styleClass="muted" visible="false" managed="false"/>
             <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="announcementBanner" styleClass="announcement" textOverrun="ELLIPSIS" minWidth="0"
+                   accessibleText="Latest LAN announcement" visible="false" managed="false"/>
             <Label fx:id="connectionStatus" text="Disconnected" styleClass="status-pill"/>
             <Button fx:id="disconnectButton" text="Disconnect" onAction="#disconnect" styleClass="quiet-button"
                     visible="false" managed="false"/>

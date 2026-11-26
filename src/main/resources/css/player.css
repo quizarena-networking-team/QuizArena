@@ -115,6 +115,13 @@
 .status-pill:busy { -fx-background-color: #45351e; -fx-text-fill: #ffe1a6; }
 .status-pill:error { -fx-background-color: #4b2b3b; -fx-text-fill: #ffd0dc; }
 .poll-phase:closed { -fx-background-color: #303451; -fx-text-fill: #d5d3f0; }
+.announcement {
+    -fx-background-color: #2a2350;
+    -fx-text-fill: #d8c8ff;
+    -fx-font-size: 13px;
+    -fx-padding: 6 11;
+    -fx-background-radius: 14;
+}
 
 .feedback { -fx-text-fill: #c7d3e8; }
 .feedback:error { -fx-text-fill: #ffb5c5; }
