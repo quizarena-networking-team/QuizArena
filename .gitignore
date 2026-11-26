@@ -26,3 +26,7 @@ logs/
 # Operating system
 .DS_Store
 Thumbs.db
+
+
+.claude/
+cp.txt

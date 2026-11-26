@@ -55,6 +55,7 @@ public final class PlayerSessionController implements AutoCloseable {
     @FXML private Button quizLobbyButton;
     @FXML private Label quizInputStatus;
     @FXML private Label connectionStatus;
+    @FXML private Label announcementBanner;
     @FXML private Button disconnectButton;
     @FXML private Parent connectionView;
     @FXML private Parent joinView;
@@ -67,6 +68,9 @@ public final class PlayerSessionController implements AutoCloseable {
 
     private final Queue<ProtocolMessage> joiningEvents = new ArrayDeque<>();
     private PlayerTransport transport;
+    // Member 4: advisory UDP heartbeat and multicast announcements; disabled unless bound to a real client.
+    private LanPresence lanPresence = LanPresence.disabled();
+    private String serverHost;
     private State state = State.DISCONNECTED;
     private JoinedRoom joined;
     private JoinedQuizView quiz;
@@ -80,6 +84,7 @@ public final class PlayerSessionController implements AutoCloseable {
 
     public void bind(TcpQuizClient client) {
         bind(new PlayerTransport.Tcp(Objects.requireNonNull(client, "client")));
+        lanPresence = LanPresence.fromEnvironment();
     }
 
     void bind(PlayerTransport transport) {
@@ -114,6 +119,7 @@ public final class PlayerSessionController implements AutoCloseable {
             return;
         }
         long generation = ++connectionGeneration;
+        serverHost = address.host();
         changeState(State.CONNECTING);
         connectionViewController.show(true, "Opening a gameplay connection…", false);
         lossSubscription = transport.onConnectionLost(cause -> Platform.runLater(() -> {
@@ -168,6 +174,12 @@ public final class PlayerSessionController implements AutoCloseable {
 
             String assignedRoom = reply.roomCode() == null || reply.roomCode().isBlank() ? roomCode : reply.roomCode();
             joined = new JoinedRoom(assignedRoom, playerId, playerName);
+            lanPresence.start(serverHost, assignedRoom, playerId, text -> Platform.runLater(() -> {
+                if (generation == roomGeneration && joined != null) {
+                    announcementBanner.setText(text);
+                    setVisible(announcementBanner, true);
+                }
+            }));
             joinViewController.show(false, "", false);
             lobbyViewController.showRoom(assignedRoom, playerName);
             try {
@@ -393,6 +405,8 @@ public final class PlayerSessionController implements AutoCloseable {
         roomGeneration++;
         unsubscribe(roomSubscription);
         roomSubscription = null;
+        lanPresence.stop();
+        setVisible(announcementBanner, false);
         if (quiz != null) {
             if (showingQuiz()) {
                 playerShell.setCenter(playerViewport);
@@ -526,5 +540,6 @@ public final class PlayerSessionController implements AutoCloseable {
             clearRoom();
             transport.close();
         }
+        lanPresence.close();
     }
 }

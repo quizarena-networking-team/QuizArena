@@ -1,0 +1,37 @@
+/* Member 4 - host network inspector. Same navy/purple palette as player.css. */
+.inspector {
+    -fx-background-color: #0f1726;
+    -fx-font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    -fx-font-size: 13px;
+}
+.inspector-header { -fx-background-color: #131d2f; -fx-padding: 16 18 14 18; }
+.inspector-title { -fx-text-fill: #f3f5ff; -fx-font-size: 22px; -fx-font-weight: bold; }
+.inspector-badge {
+    -fx-background-color: #163b37; -fx-text-fill: #98ebcb; -fx-font-size: 11px; -fx-font-weight: bold;
+    -fx-padding: 4 9; -fx-background-radius: 12;
+}
+.inspector-muted { -fx-text-fill: #b5c2d9; }
+.inspector-stat { -fx-text-fill: #e4ebf9; -fx-font-family: "Consolas", "Menlo", monospace; }
+.inspector-footer { -fx-background-color: #131d2f; }
+.inspector-feedback { -fx-text-fill: #c7d3e8; }
+.inspector-feedback:error { -fx-text-fill: #ffb5c5; }
+
+.inspector-table { -fx-background-color: #152135; -fx-control-inner-background: #152135;
+    -fx-control-inner-background-alt: #18263c; -fx-table-cell-border-color: #22304a; }
+.inspector-table .column-header-background { -fx-background-color: #25344e; }
+.inspector-table .column-header, .inspector-table .filler { -fx-background-color: transparent; }
+.inspector-table .column-header .label { -fx-text-fill: #d4c3ff; -fx-font-weight: bold; }
+.inspector-table .table-cell { -fx-text-fill: #e4ebf9; -fx-font-family: "Consolas", "Menlo", monospace; }
+.inspector-table .table-row-cell:selected { -fx-background-color: #344158; }
+.inspector-table .placeholder .label { -fx-text-fill: #b5c2d9; }
+
+.inspector .text-field {
+    -fx-background-color: #111c2f; -fx-text-fill: #f3f5ff; -fx-prompt-text-fill: #7f8ca6;
+    -fx-border-color: #31415d; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 7 10;
+}
+.inspector-button {
+    -fx-background-color: #713cdd; -fx-text-fill: white; -fx-font-weight: bold;
+    -fx-background-radius: 6; -fx-padding: 8 14; -fx-cursor: hand;
+}
+.inspector-button:hover { -fx-background-color: #8050ec; }
+.inspector-button:disabled { -fx-opacity: 0.55; }

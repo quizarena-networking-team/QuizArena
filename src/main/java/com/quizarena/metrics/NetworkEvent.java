@@ -28,7 +28,12 @@ public record NetworkEvent(
         WRITE,
         FRAME_REJECTED,
         DISCONNECT,
-        ERROR
+        ERROR,
+        // Member 4 - UDP discovery, heartbeat and multicast (advisory channels)
+        UDP_RECEIVED,
+        UDP_SENT,
+        UDP_REJECTED,
+        PRESENCE_WARNING
     }
 
     private static final DateTimeFormatter TIME =
