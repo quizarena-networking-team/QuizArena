@@ -28,4 +28,18 @@
         </HBox>
         <Label fx:id="connectionMessage" wrapText="true" styleClass="feedback" visible="false" managed="false"/>
     </VBox>
+    <VBox spacing="14" styleClass="player-card">
+        <HBox alignment="CENTER_LEFT" spacing="12">
+            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                <Label text="Servers on this network" styleClass="section-title"/>
+                <Label text="Finds QuizArena servers with a UDP broadcast." styleClass="muted" wrapText="true"/>
+            </VBox>
+            <ProgressIndicator fx:id="discoverProgress" prefWidth="22" prefHeight="22" maxWidth="22" maxHeight="22"
+                               visible="false" managed="false" accessibleText="Searching the network"/>
+            <Button fx:id="discoverButton" text="Find servers on LAN" onAction="#findServers" styleClass="quiet-button"/>
+        </HBox>
+        <ListView fx:id="discoveredServers" prefHeight="110" visible="false" managed="false"
+                  accessibleText="Servers found on the local network"/>
+        <Label fx:id="discoveryMessage" wrapText="true" styleClass="feedback" visible="false" managed="false"/>
+    </VBox>
 </VBox>

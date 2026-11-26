@@ -52,10 +52,11 @@ mvn clean javafx:run
 
 ## Run the Server
 
-Run `com.quizarena.server.ServerMain` from IntelliJ.
+Run `com.quizarena.server.ServerMain` from IntelliJ (or `mvn compile exec:java -Dexec.mainClass=com.quizarena.server.ServerMain`).
 
-Note: The initial ServerMain is a placeholder.
-Networking features will be implemented by team members.
+It starts the Java NIO gameplay server on TCP 5000. To create a room before
+the TLS host service exists, pass `--dev-room=DEMO01` (or set `QUIZ_DEV_ROOM`).
+Other options: `--port=N`, `--host=H`. See `docs/MEMBER1.md`.
 
 ## Development Workflow
 
