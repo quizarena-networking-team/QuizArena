@@ -60,17 +60,30 @@ class TcpQuizClientTest {
         }
     }
 
-    @Test
-    void reportsFailedConnectionAndCanRetry() throws Exception {
-        try (var client = new TcpQuizClient(); var unusedPort = new Socket(); var server = new LoopbackServer()) {
-            // Reserve a loopback port without listening on it.
-            unusedPort.bind(new InetSocketAddress(LOOPBACK, 0));
-            assertInstanceOf(ConnectException.class, failureOf(client.connect(HOST, unusedPort.getLocalPort())));
-            assertFalse(client.isConnected());
-            server.connect(client);
-            assertTrue(client.isConnected());
-        }
+
+@Test
+void reportsFailedConnectionAndCanRetry() throws Exception {
+    int unusedPort;
+
+    // Temporarily reserve a server port, then release it.
+    try (var reservation = new ServerSocket(0, 1, LOOPBACK)) {
+        unusedPort = reservation.getLocalPort();
     }
+
+    try (var client = new TcpQuizClient();
+         var server = new LoopbackServer()) {
+
+        assertInstanceOf(
+                ConnectException.class,
+                failureOf(client.connect(HOST, unusedPort))
+        );
+
+        assertFalse(client.isConnected());
+
+        server.connect(client);
+        assertTrue(client.isConnected());
+    }
+}
 
     @Test
     void closeIsPermanent() throws Exception {
