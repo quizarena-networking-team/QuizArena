@@ -65,7 +65,7 @@ public final class LanServices implements AutoCloseable {
 
         MulticastAnnouncer announcer = null;
         try {
-            NetworkInterface nif = MulticastInterfaces.select(config.multicastInterface());
+            NetworkInterface nif = MulticastInterfaces.forSending(config.multicastInterface());
             if (nif == null) {
                 throw new IllegalStateException("no multicast-capable network interface");
             }

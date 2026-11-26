@@ -50,8 +50,8 @@ class LanServicesTest {
 
     @Test
     void wrappedRoomSinkAnnouncesGamePhasesToJoinedPlayers() throws Exception {
-        NetworkInterface nif = MulticastInterfaces.select(null);
-        org.junit.jupiter.api.Assumptions.assumeTrue(nif != null, "no multicast-capable network interface");
+        List<NetworkInterface> interfaces = MulticastInterfaces.forReceiving(null);
+        org.junit.jupiter.api.Assumptions.assumeTrue(!interfaces.isEmpty(), "no multicast-capable network interface");
         int multicastPort = freeUdpPort();
         UdpConfig config = testConfig(multicastPort);
         List<ProtocolMessage> tcp = new CopyOnWriteArrayList<>();
@@ -59,7 +59,7 @@ class LanServicesTest {
 
         try (LanServices lan = LanServices.start(config, 5000, new RoomRegistry(), new NetworkEventBus());
              MulticastListener player = MulticastListener.join(InetAddress.getByName(config.multicastGroup()),
-                     multicastPort, nif, "ABC123", received::add)) {
+                     multicastPort, interfaces, "ABC123", received::add)) {
             assertTrue(lan.multicastAvailable());
 
             lan.wrap(tcp::add).broadcast(new ProtocolMessage(QUESTION_STARTED, null, "ABC123", null, null, Map.of()));

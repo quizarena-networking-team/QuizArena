@@ -8,6 +8,7 @@ import com.quizarena.udp.presence.HeartbeatSender;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -73,13 +74,13 @@ final class LanPresence implements AutoCloseable {
                 LOG.log(System.Logger.Level.WARNING, "UDP heartbeat unavailable: " + failure);
             }
             try {
-                NetworkInterface nif = MulticastInterfaces.select(config.multicastInterface());
-                if (nif == null) {
+                List<NetworkInterface> interfaces = MulticastInterfaces.forReceiving(config.multicastInterface());
+                if (interfaces.isEmpty()) {
                     LOG.log(System.Logger.Level.WARNING, "No multicast-capable interface; announcements disabled");
                     return;
                 }
                 announcements = MulticastListener.join(InetAddress.getByName(config.multicastGroup()),
-                        config.multicastPort(), nif, roomCode, message -> onAnnouncement.accept(message.message()));
+                        config.multicastPort(), interfaces, roomCode, message -> onAnnouncement.accept(message.message()));
             } catch (Exception failure) {
                 LOG.log(System.Logger.Level.WARNING, "Multicast announcements unavailable: " + failure);
             }

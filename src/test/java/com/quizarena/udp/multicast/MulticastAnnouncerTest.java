@@ -27,7 +27,8 @@ class MulticastAnnouncerTest {
 
     @Test
     void twoSubscribedClientsReceiveTheServersAnnouncement() throws Exception {
-        NetworkInterface nif = MulticastInterfaces.select(null);
+        NetworkInterface nif = MulticastInterfaces.forSending(null);
+        List<NetworkInterface> listenOn = MulticastInterfaces.forReceiving(null);
         assumeTrue(nif != null, "no multicast-capable network interface");
         InetAddress group = InetAddress.getByName("239.10.10.10");
         int port = freeUdpPort();
@@ -35,8 +36,8 @@ class MulticastAnnouncerTest {
 
         List<UdpMessage> first = new CopyOnWriteArrayList<>();
         List<UdpMessage> second = new CopyOnWriteArrayList<>();
-        try (MulticastListener a = MulticastListener.join(group, port, nif, "ABC123", first::add);
-             MulticastListener b = MulticastListener.join(group, port, nif, "ABC123", second::add);
+        try (MulticastListener a = MulticastListener.join(group, port, listenOn, "ABC123", first::add);
+             MulticastListener b = MulticastListener.join(group, port, listenOn, "ABC123", second::add);
              MulticastAnnouncer announcer = MulticastAnnouncer.open(group, port, nif, events)) {
 
             announcer.announce("ABC123", "Round starts now");
@@ -53,14 +54,15 @@ class MulticastAnnouncerTest {
 
     @Test
     void longTextIsShortenedAndBlankInputIgnored() throws Exception {
-        NetworkInterface nif = MulticastInterfaces.select(null);
+        NetworkInterface nif = MulticastInterfaces.forSending(null);
+        List<NetworkInterface> listenOn = MulticastInterfaces.forReceiving(null);
         assumeTrue(nif != null, "no multicast-capable network interface");
         InetAddress group = InetAddress.getByName("239.10.10.10");
         int port = freeUdpPort();
         NetworkEventBus events = new NetworkEventBus();
 
         List<UdpMessage> received = new CopyOnWriteArrayList<>();
-        try (MulticastListener listener = MulticastListener.join(group, port, nif, "ABC123", received::add);
+        try (MulticastListener listener = MulticastListener.join(group, port, listenOn, "ABC123", received::add);
              MulticastAnnouncer announcer = MulticastAnnouncer.open(group, port, nif, events)) {
             announcer.announce("ABC123", " ");
             announcer.announce(null, "No room");
@@ -74,7 +76,7 @@ class MulticastAnnouncerTest {
 
     @Test
     void rejectsANonMulticastGroup() throws Exception {
-        NetworkInterface nif = MulticastInterfaces.select(null);
+        NetworkInterface nif = MulticastInterfaces.forSending(null);
         assumeTrue(nif != null, "no multicast-capable network interface");
         assertThrows(IllegalArgumentException.class, () ->
                 MulticastAnnouncer.open(InetAddress.getByName("10.0.0.1"), 5003, nif, new NetworkEventBus()));

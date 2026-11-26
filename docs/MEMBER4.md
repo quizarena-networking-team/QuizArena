@@ -27,8 +27,8 @@ never removes a player. The TCP session (Member 1) is the source of truth for me
 | `udp` | `DatagramCodec` | UTF-8 JSON, one message per datagram, max 1200 bytes; drops malformed input |
 | `udp.discovery` | `DiscoveryClient` | Sends `DISCOVER` to 255.255.255.255, each interface's broadcast address and localhost; collects unicast replies |
 | `udp.presence` | `HeartbeatSender` | Sends `HEARTBEAT` every 2 s on a daemon timer; failures are logged and ignored |
-| `udp.multicast` | `MulticastListener` | `joinGroup(group, nif)`, receive loop, room filter, `leaveGroup` on close |
-| `udp.multicast` | `MulticastInterfaces` | Picks the multicast interface (configured name, else first LAN IPv4 interface, else loopback) |
+| `udp.multicast` | `MulticastListener` | `joinGroup(group, nif)` on every candidate interface, receive loop, room filter, `leaveGroup` on close |
+| `udp.multicast` | `MulticastInterfaces` | `forSending`: configured name, else the default-route (LAN) adapter, else first IPv4 multicast adapter. `forReceiving`: configured name, else every active IPv4 multicast adapter. Membership is per interface, so listeners join all of them and receive whichever adapter the server uses |
 | `client.player` | `LanPresence` | Starts heartbeat + multicast listener after `JOIN_ROOM` succeeds; stops them when the room is cleared |
 
 ### Changes to Member 2's player client

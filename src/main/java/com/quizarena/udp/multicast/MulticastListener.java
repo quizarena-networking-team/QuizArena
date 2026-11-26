@@ -10,11 +10,14 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Player-side multicast receiver. Joins the announcement group on one network interface and
+ * Player-side multicast receiver. Joins the announcement group on the given network interfaces and
  * delivers {@code ANNOUNCEMENT} messages for the player's room to a callback.
  *
  * Announcements are supplementary hints only; missing one never means a game action did not
@@ -27,16 +30,16 @@ public final class MulticastListener implements AutoCloseable {
 
     private final MulticastSocket socket;
     private final InetSocketAddress group;
-    private final NetworkInterface nif;
+    private final List<NetworkInterface> joined;
     private final String roomCode;
     private final Consumer<UdpMessage> onAnnouncement;
     private final Thread thread;
 
-    private MulticastListener(MulticastSocket socket, InetSocketAddress group, NetworkInterface nif,
+    private MulticastListener(MulticastSocket socket, InetSocketAddress group, List<NetworkInterface> joined,
                               String roomCode, Consumer<UdpMessage> onAnnouncement) {
         this.socket = socket;
         this.group = group;
-        this.nif = nif;
+        this.joined = joined;
         this.roomCode = roomCode;
         this.onAnnouncement = onAnnouncement;
         this.thread = new Thread(this::receiveLoop, "quiz-multicast-listener");
@@ -44,13 +47,15 @@ public final class MulticastListener implements AutoCloseable {
     }
 
     /**
-     * Binds the multicast port, joins the group on {@code nif}, and starts receiving.
-     * When this method returns, the group membership is active.
+     * Binds the multicast port, joins the group on each of {@code interfaces} (membership is per
+     * interface, so joining all candidates means the sender's adapter choice does not matter), and
+     * starts receiving. When this method returns, the memberships are active. Interfaces that
+     * refuse the join are skipped; it fails only if none can join.
      */
-    public static MulticastListener join(InetAddress groupAddress, int port, NetworkInterface nif,
+    public static MulticastListener join(InetAddress groupAddress, int port, Collection<NetworkInterface> interfaces,
                                          String roomCode, Consumer<UdpMessage> onAnnouncement) throws IOException {
         Objects.requireNonNull(groupAddress, "groupAddress");
-        Objects.requireNonNull(nif, "nif");
+        Objects.requireNonNull(interfaces, "interfaces");
         Objects.requireNonNull(onAnnouncement, "onAnnouncement");
         if (!groupAddress.isMulticastAddress()) {
             throw new IllegalArgumentException(groupAddress + " is not a multicast address");
@@ -61,13 +66,22 @@ public final class MulticastListener implements AutoCloseable {
         // MulticastSocket enables SO_REUSEADDR, so several players on one computer can share the port.
         MulticastSocket socket = new MulticastSocket(port);
         InetSocketAddress group = new InetSocketAddress(groupAddress, 0);
-        try {
-            socket.joinGroup(group, nif);
-        } catch (IOException failure) {
-            socket.close();
-            throw failure;
+        List<NetworkInterface> joined = new ArrayList<>();
+        IOException lastFailure = null;
+        for (NetworkInterface nif : interfaces) {
+            try {
+                socket.joinGroup(group, nif);
+                joined.add(nif);
+            } catch (IOException failure) {
+                lastFailure = failure;
+                LOG.log(System.Logger.Level.DEBUG, "Multicast join skipped on " + nif.getName() + ": " + failure);
+            }
         }
-        MulticastListener listener = new MulticastListener(socket, group, nif, roomCode, onAnnouncement);
+        if (joined.isEmpty()) {
+            socket.close();
+            throw lastFailure != null ? lastFailure : new IOException("No network interface to join " + groupAddress);
+        }
+        MulticastListener listener = new MulticastListener(socket, group, List.copyOf(joined), roomCode, onAnnouncement);
         listener.thread.start();
         return listener;
     }
@@ -100,16 +114,23 @@ public final class MulticastListener implements AutoCloseable {
         }
     }
 
-    /** Leaves the group and stops receiving. */
+    /** The interfaces whose group membership is active. */
+    public List<NetworkInterface> joinedInterfaces() {
+        return joined;
+    }
+
+    /** Leaves the group on every joined interface and stops receiving. */
     @Override
     public void close() {
         if (socket.isClosed()) {
             return;
         }
-        try {
-            socket.leaveGroup(group, nif);
-        } catch (IOException ignored) {
-            // Closing the socket drops the membership anyway.
+        for (NetworkInterface nif : joined) {
+            try {
+                socket.leaveGroup(group, nif);
+            } catch (IOException ignored) {
+                // Closing the socket drops the membership anyway.
+            }
         }
         socket.close();
     }
