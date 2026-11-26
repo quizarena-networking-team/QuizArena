@@ -92,6 +92,15 @@ password. Optional limits are `QUIZ_TLS_MAX_CONNECTIONS` (default `32`) and
 `QUIZ_TLS_SOCKET_TIMEOUT_SECONDS` (default `60`). Keystores and private keys are
 ignored by Git and must never be committed.
 
+With the server running, the local verification tool prompts privately for the
+keystore and QuizArena host passwords, then verifies TLS 1.3 login and room creation:
+
+```bash
+mvn compile exec:java \
+  -Dexec.mainClass=com.quizarena.security.HostControlVerifier \
+  -Dexec.args=host-admin
+```
+
 ## Test database
 
 Use a separate disposable database for the opt-in JDBC integration test:
