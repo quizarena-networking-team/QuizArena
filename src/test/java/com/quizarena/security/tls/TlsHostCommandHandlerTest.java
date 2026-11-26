@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.quizarena.protocol.MessageTypes.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -63,6 +64,29 @@ class TlsHostCommandHandlerTest {
                 Map.of("username", "host-admin", "password", "Correct-Horse-4827!")), session);
         assertResponse(session.last(), HOST_LOGIN_RESULT, "r2", "ERROR", "INTERNAL_ERROR");
         assertFalse(session.last().payload().toString().contains("database details"));
+    }
+
+    @Test
+    void throttlesRepeatedFailedLoginsBeforeCallingTheDatabaseAgain() throws Exception {
+        var lookups = new AtomicInteger();
+        var handler = new TlsHostCommandHandler(
+                new HostAuthenticator(username -> { lookups.incrementAndGet(); return Optional.empty(); },
+                        new PasswordHasher()),
+                (request, session, host) -> fail("must not delegate"));
+        var session = new FakeSession();
+
+        for (int attempt = 1; attempt <= LoginAttemptLimiter.MAX_FAILURES; attempt++) {
+            handler.handle(message(HOST_LOGIN, "failed-" + attempt,
+                    Map.of("username", "host-admin", "password", "Wrong-Password-4827!")), session);
+            assertResponse(session.last(), HOST_LOGIN_RESULT, "failed-" + attempt,
+                    "ERROR", "UNAUTHORIZED");
+        }
+        handler.handle(message(HOST_LOGIN, "blocked",
+                Map.of("username", "host-admin", "password", "Wrong-Password-4827!")), session);
+
+        assertEquals(LoginAttemptLimiter.MAX_FAILURES, lookups.get());
+        assertEquals("Too many failed login attempts; try again later",
+                session.last().payload().get("message"));
     }
 
     private static ProtocolMessage message(String type, String requestId, Map<String, Object> payload) {

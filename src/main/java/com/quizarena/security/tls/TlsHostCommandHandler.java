@@ -19,11 +19,19 @@ public final class TlsHostCommandHandler implements TlsRequestHandler {
 
     private final HostAuthenticator authenticator;
     private final AuthenticatedTlsCommandHandler authenticatedCommands;
+    private final LoginAttemptLimiter loginAttempts;
 
     public TlsHostCommandHandler(HostAuthenticator authenticator,
                                  AuthenticatedTlsCommandHandler authenticatedCommands) {
+        this(authenticator, authenticatedCommands, new LoginAttemptLimiter());
+    }
+
+    TlsHostCommandHandler(HostAuthenticator authenticator,
+                          AuthenticatedTlsCommandHandler authenticatedCommands,
+                          LoginAttemptLimiter loginAttempts) {
         this.authenticator = Objects.requireNonNull(authenticator, "authenticator");
         this.authenticatedCommands = Objects.requireNonNull(authenticatedCommands, "authenticatedCommands");
+        this.loginAttempts = Objects.requireNonNull(loginAttempts, "loginAttempts");
     }
 
     @Override
@@ -67,15 +75,22 @@ public final class TlsHostCommandHandler implements TlsRequestHandler {
                     "BAD_REQUEST", "Username and password are required"));
             return;
         }
+        if (!loginAttempts.allow(session, username)) {
+            session.send(error(HOST_LOGIN_RESULT, request.requestId(), null,
+                    "UNAUTHORIZED", "Too many failed login attempts; try again later"));
+            return;
+        }
 
         char[] passwordCharacters = password.toCharArray();
         try {
             var verified = authenticator.authenticate(username, passwordCharacters);
             if (verified.isEmpty() || !session.authenticate(verified.orElseThrow())) {
+                loginAttempts.failed(session, username);
                 session.send(error(HOST_LOGIN_RESULT, request.requestId(), null,
                         "UNAUTHORIZED", "Invalid host credentials"));
                 return;
             }
+            loginAttempts.succeeded(session, username);
             AuthenticatedHost host = verified.orElseThrow();
             session.send(new ProtocolMessage(HOST_LOGIN_RESULT, request.requestId(), null,
                     "OK", null, Map.of("hostId", Long.toString(host.id()), "username", host.username())));

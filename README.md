@@ -58,6 +58,12 @@ It starts the Java NIO gameplay server on TCP 5000. To create a room before
 the TLS host service exists, pass `--dev-room=DEMO01` (or set `QUIZ_DEV_ROOM`).
 Other options: `--port=N`, `--host=H`. See `docs/MEMBER1.md`.
 
+`--dev-room` without `QUIZ_TLS_ENABLED=true` is a transport/lobby development
+mode only: players can join and leave, but poll and quiz gameplay handlers are
+not registered because their room-scoped services are created by the secure
+host runtime. Enable TLS/MySQL and create the room through `CREATE_ROOM` for the
+complete poll and quiz workflow. See `docs/MEMBER5.md`.
+
 ## Development Workflow
 
 - main: stable release branch
