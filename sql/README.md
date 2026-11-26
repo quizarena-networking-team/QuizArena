@@ -54,6 +54,21 @@ export QUIZ_DB_SOCKET_TIMEOUT_SECONDS='10'
 Credentials must be supplied separately; embedding a user or password in the
 JDBC URL is rejected. The application never prints the configured password.
 
+## Create the first host account
+
+After exporting the application connection settings, run the local provisioning
+tool from a real terminal:
+
+```bash
+mvn compile exec:java \
+  -Dexec.mainClass=com.quizarena.security.HostAccountProvisioner \
+  -Dexec.args=host-admin
+```
+
+The tool prompts twice without displaying the password. It stores only a random
+salt, a PBKDF2-HMAC-SHA-256 hash and the iteration count. A duplicate username is
+rejected by the database. Do not create hosts with handwritten SQL hashes.
+
 ## Test database
 
 Use a separate disposable database for the opt-in JDBC integration test:
