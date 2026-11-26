@@ -69,6 +69,23 @@ The tool prompts twice without displaying the password. It stores only a random
 salt, a PBKDF2-HMAC-SHA-256 hash and the iteration count. A duplicate username is
 rejected by the database. Do not create hosts with handwritten SQL hashes.
 
+## TLS server settings
+
+The host-control listener requires a PKCS#12 keystore and never reads private-key
+passwords from source files:
+
+```bash
+export QUIZ_TLS_BIND_HOST='0.0.0.0'
+export QUIZ_TLS_PORT='8443'
+export QUIZ_TLS_KEYSTORE_PATH='/absolute/private/path/quizarena-server.p12'
+export QUIZ_TLS_KEYSTORE_PASSWORD='your-private-keystore-password'
+```
+
+`QUIZ_TLS_KEY_PASSWORD` is optional when the key and keystore use the same
+password. Optional limits are `QUIZ_TLS_MAX_CONNECTIONS` (default `32`) and
+`QUIZ_TLS_SOCKET_TIMEOUT_SECONDS` (default `60`). Keystores and private keys are
+ignored by Git and must never be committed.
+
 ## Test database
 
 Use a separate disposable database for the opt-in JDBC integration test:
