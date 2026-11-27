@@ -2,11 +2,13 @@ package com.quizarena.server;
 
 import com.quizarena.metrics.NetworkEvent;
 import com.quizarena.metrics.NetworkEventBus;
+import com.quizarena.security.SecureHostRuntime;
 import com.quizarena.server.inspector.NetworkInspectorWindow;
 import com.quizarena.udp.LanServices;
 import com.quizarena.udp.UdpConfig;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,7 +73,7 @@ public final class ServerMain {
         return new Services(config, events, rooms, dispatcher, server);
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException, InterruptedException, SQLException {
         boolean inspector = Arrays.asList(args).contains("--inspector");
         String[] settings = Arrays.stream(args).filter(arg -> !arg.equals("--inspector")).toArray(String[]::new);
         ServerConfig config = applyArguments(ServerConfig.fromEnv(System.getenv()), settings);
@@ -93,6 +95,15 @@ public final class ServerMain {
         services.server().start();
         System.out.printf("Gameplay TCP (NIO) listening on %s:%d%n", config.bindHost(), services.server().boundPort());
 
+        SecureHostRuntime secureHosts = SecureHostRuntime.isEnabled(System.getenv())
+                ? SecureHostRuntime.start(System.getenv(), services.rooms(), services.dispatcher())
+                : null;
+        if (secureHosts != null) {
+            System.out.printf("Secure host control (TLS 1.3) listening on port %d%n", secureHosts.boundPort());
+        } else {
+            System.out.println("Secure host control disabled (set QUIZ_TLS_ENABLED=true to enable it)");
+        }
+
         if (config.devRoomCode() != null) {
             String code = services.rooms().createRoom(config.devRoomCode());
             System.out.println("Development room created: " + code
@@ -113,6 +124,7 @@ public final class ServerMain {
 
         CountDownLatch stopped = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (secureHosts != null) secureHosts.close();
             lan.close();
             services.close();
             stopped.countDown();
