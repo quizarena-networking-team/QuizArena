@@ -103,6 +103,9 @@ mvn compile exec:java \
 
 ## Test database
 
+For the opt-in TLS, TCP, UDP and MySQL flow, see the
+[full networking integration guide](../docs/INTEGRATION.md).
+
 Use a separate disposable database for the opt-in JDBC integration test:
 
 ```sql
